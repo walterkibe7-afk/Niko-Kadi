@@ -22,8 +22,9 @@ func _ready() -> void:
 	turn_label.text = "Your turn"
 	turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	turn_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	turn_label.position = Vector2(SCREEN_SIZE.x / 2.0, 60.0)
-	turn_label.add_theme_constant_override("font_size", 24)
+	turn_label.size = Vector2(720, 40)
+	turn_label.position = Vector2(0, 480)
+	turn_label.add_theme_font_size_override("font_size", 24)
 	turn_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(turn_label)
 	
@@ -31,8 +32,9 @@ func _ready() -> void:
 	game_over_label.text = ""
 	game_over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	game_over_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	game_over_label.position = Vector2(SCREEN_SIZE.x / 2.0, SCREEN_SIZE.y / 2.0)
-	game_over_label.add_theme_constant_override("font_size", 48)
+	game_over_label.size = Vector2(720, 40)
+	game_over_label.position = Vector2(0, 600)
+	game_over_label.add_theme_font_size_override("font_size", 48)
 	game_over_label.modulate = Color(1, 0.2, 0.2)
 	game_over_label.visible = false
 	game_over_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -69,25 +71,26 @@ func _show_deal() -> void:
 	_clear_table()
 	
 	# My hand face-up along the bottom with 40px margin above bottom edge.
-	_place_hand(game.hands[0], true, SCREEN_SIZE.y - MARGIN - CARD_SIZE.y)
+	_place_hand(game.hands[0], true, SCREEN_SIZE.y - MARGIN - CARD_SIZE.y / 2.0)
 	# Opponent's hand face-down along the top with 40px margin below top edge.
-	_place_hand(game.hands[1], false, MARGIN)
-	# Starter card face-up in the middle.
-	_add_card_view(
-		game.discard_pile[0],
-		true,
-		Vector2(
-			SCREEN_SIZE.x / 2.0 - CARD_SIZE.x / 2.0,
-			SCREEN_SIZE.y / 2.0 - CARD_SIZE.y / 2.0,
-		),
-	)
-	# Face-down draw pile beside the starter card.
+	_place_hand(game.hands[1], false, MARGIN + CARD_SIZE.y / 2.0)
+	# Top discard card face-up in the middle.
+	if not game.discard_pile.is_empty():
+		_add_card_view(
+			game.top_card(),
+			true,
+			Vector2(
+				SCREEN_SIZE.x / 2.0 + CARD_SIZE.x / 2.0 + 12.0,
+				SCREEN_SIZE.y / 2.0,
+			),
+		)
+	# Face-down draw pile beside the discard card.
 	draw_pile_view = _add_card_view(
 		null,
 		false,
 		Vector2(
-			SCREEN_SIZE.x / 2.0 - CARD_SIZE.x * 1.5 - 12.0,
-			SCREEN_SIZE.y / 2.0 - CARD_SIZE.y / 2.0,
+			SCREEN_SIZE.x / 2.0 - CARD_SIZE.x / 2.0 - 12.0,
+			SCREEN_SIZE.y / 2.0,
 		),
 	)
 
@@ -182,7 +185,7 @@ func _place_hand(hand, face_up: bool, y: float) -> void:
 	var spacing := CARD_SIZE.x
 	if count > 1:
 		spacing = clamp((usable - CARD_SIZE.x) / (count - 1), 0.0, CARD_SIZE.x)
-	var x := MARGIN
+	var x := MARGIN + CARD_SIZE.x / 2.0
 	for card in hand:
 		var cv := _add_card_view(card, face_up, Vector2(x, y))
 		if face_up and hand == game.hands[0]:
