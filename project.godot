@@ -1,0 +1,23 @@
+; Engine configuration file.
+; Kadi - 2-player mobile card game
+; Workspace only: no gameplay code or main scene yet.
+
+[application]
+
+config/name="Kadi"
+config/features=PackedStringArray("4.7")
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/size/resizable=false
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+; ScreenOrientation.SCREEN_ORIENTATION_PORTRAIT = 1
+window/handheld/orientation=1
+
+[rendering]
+
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="gl_compatibility"
