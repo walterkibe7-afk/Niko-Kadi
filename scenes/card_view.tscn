@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://c7e3m1k9a2v6b5n"]
+
+[ext_resource type="Script" uid="uid://cqyxl7ooiqnif" path="res://scripts/ui/card_view.gd" id="1_card_view_script"]
+
+[node name="CardView" type="Node2D"]
+script = ExtResource("1_card_view_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+
+[node name="Area2D" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
