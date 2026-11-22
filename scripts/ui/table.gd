@@ -10,11 +10,18 @@ const SIMPLE_BOT := preload("res://scripts/bot/simple_bot.gd")
 const SUIT_SYMBOLS := ["♥", "♦", "♣", "♠"]
 const SUIT_NAMES := ["Hearts", "Diamonds", "Clubs", "Spades"]
 
+const OPP_JUMP_NOTICE := "Opponent declared Niko Kadi! Counter with a J/K, or you're skipped"
+const OPPONENT_BANNER_TEXT := "OPPONENT: NIKO KADI!"
+const PLAYER_BANNER_TEXT := "YOU: NIKO KADI!"
+
 var game: GameState
 var turn_label: Label
 var game_over_label: Label
 var notice_banner: Label
-var declaration_banner: Label
+var opponent_banner: Panel
+var opponent_banner_label: Label
+var player_banner: Panel
+var player_banner_label: Label
 var suit_indicator_panel: Panel
 var suit_indicator_label: Label
 var suit_picker_overlay: ColorRect
@@ -23,10 +30,23 @@ var niko_kadi_button: Button
 var niko_kadi_hint: Label
 var is_niko_kadi_declared: bool = false
 var accept_skip_button: Button
-var _is_auto_skipping: bool = false
+var jump_notice_panel: Panel
+var jump_notice_label: Label
 var _last_seen_top_card: Card = null
 var _opp_had_penalty: bool = false
 var _answer_timer_token: int = 0
+
+var _game_over_shown: bool = false
+var _game_over_result: int = 0
+var _jump_state_active: bool = false
+var _jump_flow_token: int = 0
+var _jump_waiting_for_input: bool = false
+var _jump_pause_active: bool = false
+var _opp_declare_seen: bool = false
+var _my_declare_seen: bool = false
+var _opp_declare_until_msec: int = 0
+var _my_declare_until_msec: int = 0
+var _pulse_time: float = 0.0
 
 var input_enabled: bool = true
 var my_hand_views: Array[CardView] = []
@@ -70,18 +90,8 @@ func _ready() -> void:
 	notice_banner.z_index = 50
 	add_child(notice_banner)
 	
-	declaration_banner = Label.new()
-	declaration_banner.text = ""
-	declaration_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	declaration_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	declaration_banner.size = Vector2(720, 32)
-	declaration_banner.position = Vector2(0, 8)
-	declaration_banner.add_theme_font_size_override("font_size", 22)
-	declaration_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	declaration_banner.visible = false
-	declaration_banner.z_index = 60
-	add_child(declaration_banner)
-	
+	_create_declaration_banners()
+	_create_jump_notice()
 	_create_suit_indicator()
 	_create_suit_picker()
 	_create_niko_kadi_button()
@@ -241,21 +251,134 @@ func _update_niko_kadi_button_style() -> void:
 		
 	niko_kadi_button.add_theme_stylebox_override("normal", style)
 
-func _update_declaration_banner() -> void:
-	if declaration_banner == null or game == null or game.is_game_over() != 0:
-		if declaration_banner != null:
-			declaration_banner.visible = false
+func _create_declaration_banners() -> void:
+	opponent_banner = _make_declaration_banner(OPPONENT_BANNER_TEXT, Color(0.62, 0.05, 0.08), Vector2(10.0, 8.0))
+	opponent_banner_label = opponent_banner.get_child(0) as Label
+	player_banner = _make_declaration_banner(PLAYER_BANNER_TEXT, Color(0.04, 0.42, 0.14), Vector2(SCREEN_SIZE.x - 330.0, 8.0))
+	player_banner_label = player_banner.get_child(0) as Label
+
+
+func _make_declaration_banner(text: String, bg: Color, pos: Vector2) -> Panel:
+	var panel := Panel.new()
+	panel.size = Vector2(320, 76)
+	panel.position = pos
+	panel.z_index = 200
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.visible = false
+
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	style.border_color = Color(1, 1, 1, 0.9)
+	style.border_width_left = 3
+	style.border_width_right = 3
+	style.border_width_top = 3
+	style.border_width_bottom = 3
+	style.corner_radius_top_left = 12
+	style.corner_radius_top_right = 12
+	style.corner_radius_bottom_left = 12
+	style.corner_radius_bottom_right = 12
+	style.shadow_color = Color(0, 0, 0, 0.6)
+	style.shadow_size = 6
+	panel.add_theme_stylebox_override("panel", style)
+
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size = panel.size
+	label.position = Vector2.ZERO
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", 30)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(label)
+	add_child(panel)
+	return panel
+
+
+func _create_jump_notice() -> void:
+	jump_notice_panel = Panel.new()
+	jump_notice_panel.size = Vector2(700, 100)
+	jump_notice_panel.position = Vector2(10, 560)
+	jump_notice_panel.z_index = 210
+	jump_notice_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	jump_notice_panel.visible = false
+
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.12, 0.94)
+	style.border_color = Color(1, 0.75, 0.2)
+	style.border_width_left = 3
+	style.border_width_right = 3
+	style.border_width_top = 3
+	style.border_width_bottom = 3
+	style.corner_radius_top_left = 12
+	style.corner_radius_top_right = 12
+	style.corner_radius_bottom_left = 12
+	style.corner_radius_bottom_right = 12
+	jump_notice_panel.add_theme_stylebox_override("panel", style)
+
+	jump_notice_label = Label.new()
+	jump_notice_label.text = OPP_JUMP_NOTICE
+	jump_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	jump_notice_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	jump_notice_label.size = jump_notice_panel.size
+	jump_notice_label.position = Vector2.ZERO
+	jump_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	jump_notice_label.add_theme_font_size_override("font_size", 28)
+	jump_notice_label.add_theme_color_override("font_color", Color.WHITE)
+	jump_notice_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	jump_notice_panel.add_child(jump_notice_label)
+	add_child(jump_notice_panel)
+
+
+func _process(delta: float) -> void:
+	if game == null:
 		return
-	if game.declared[0]:
-		declaration_banner.text = "You declared Niko Kadi"
-		declaration_banner.add_theme_color_override("font_color", Color(0.3, 0.95, 0.3))
-		declaration_banner.visible = true
-	elif game.declared[1]:
-		declaration_banner.text = "Opponent declared Niko Kadi!"
-		declaration_banner.add_theme_color_override("font_color", Color(1.0, 0.45, 0.45))
-		declaration_banner.visible = true
-	else:
-		declaration_banner.visible = false
+
+	# Catch the exact frame a declaration appears, even if no UI refresh follows.
+	var opp_declared := game.declared[1]
+	if opp_declared and not _opp_declare_seen:
+		_opp_declare_seen = true
+		_opp_declare_until_msec = Time.get_ticks_msec() + 2500
+	elif not opp_declared:
+		_opp_declare_seen = false
+
+	var my_declared := game.declared[0]
+	if my_declared and not _my_declare_seen:
+		_my_declare_seen = true
+		_my_declare_until_msec = Time.get_ticks_msec() + 2500
+	elif not my_declared:
+		_my_declare_seen = false
+
+	_update_declaration_banner()
+	_check_jump_state()
+
+	# Pulse/flash so the banner cannot be mistaken for a static HUD element.
+	_pulse_time += delta
+	var wave := 0.5 + 0.5 * sin(_pulse_time * 8.0)
+	for banner in [opponent_banner, player_banner]:
+		if banner != null and banner.visible:
+			banner.modulate = Color(1, 1, 1, 0.65 + 0.35 * wave)
+			banner.scale = Vector2.ONE * (1.0 + 0.02 * wave)
+
+
+func _update_declaration_banner() -> void:
+	if opponent_banner == null or player_banner == null or game == null:
+		return
+	if game_over_label != null and game_over_label.visible:
+		opponent_banner.visible = false
+		player_banner.visible = false
+		return
+
+	# During the final-card reveal keep a fresh declaration on screen so the
+	# winning play cannot wipe it out before the player has time to read it.
+	var in_final_reveal := _game_over_shown and not game_over_label.visible
+	var now := Time.get_ticks_msec()
+	opponent_banner.visible = game.declared[1] or (in_final_reveal and now < _opp_declare_until_msec)
+	player_banner.visible = game.declared[0] or (in_final_reveal and now < _my_declare_until_msec)
 
 func _update_ui_state() -> void:
 	if game == null or game.is_game_over() != 0:
@@ -281,31 +404,82 @@ func _update_ui_state() -> void:
 	_check_jump_state()
 
 func _check_jump_state() -> void:
-	if accept_skip_button == null:
+	if accept_skip_button == null or game == null:
 		return
-	if game.current_player == 0 and game.pending_jump_rank != 0 and game.is_game_over() == 0:
-		if game.has_legal_move(0):
-			accept_skip_button.visible = true
-		else:
-			accept_skip_button.visible = false
-			if not _is_auto_skipping:
-				_auto_accept_skip()
-	else:
+	var active := game.current_player == 0 and game.pending_jump_rank != 0 and game.is_game_over() == 0
+	if not active:
+		_jump_state_active = false
+		_jump_flow_token += 1
+		_jump_waiting_for_input = false
+		_jump_pause_active = false
 		accept_skip_button.visible = false
+		if jump_notice_panel != null:
+			jump_notice_panel.visible = false
+		return
+	if _jump_state_active:
+		return
+	_jump_state_active = true
+	_start_jump_flow()
 
-func _auto_accept_skip() -> void:
-	_is_auto_skipping = true
-	_update_turn_label()
-	await get_tree().create_timer(1.2).timeout
-	_is_auto_skipping = false
-	if game.current_player == 0 and game.pending_jump_rank != 0 and game.is_game_over() == 0:
-		game.accept_jump(0)
-		_show_deal()
+
+func _start_jump_flow() -> void:
+	_jump_flow_token += 1
+	var token := _jump_flow_token
+	var opponent_declared_jump := game.declared[1]
+
+	# A declared J/K never resolves instantly: hold the skip for two seconds so
+	# the banner and the counter prompt are readable before anything can end.
+	if opponent_declared_jump:
+		_jump_pause_active = true
+		accept_skip_button.visible = false
+		if jump_notice_panel != null:
+			jump_notice_panel.visible = true
 		_update_turn_label()
-		_update_suit_indicator()
-		_update_ui_state()
-		_check_game_over()
-		_maybe_start_bot()
+		await get_tree().create_timer(2.0).timeout
+		if token != _jump_flow_token or not is_instance_valid(self):
+			return
+		_jump_pause_active = false
+
+	if game.current_player != 0 or game.pending_jump_rank == 0 or game.is_game_over() != 0:
+		_cancel_jump_flow()
+		return
+
+	if game.has_legal_move(0):
+		# Counter held: give the player three seconds to tap J/K or Accept skip.
+		_jump_waiting_for_input = true
+		accept_skip_button.visible = true
+		if jump_notice_panel != null:
+			jump_notice_panel.visible = true
+		_update_turn_label()
+		await get_tree().create_timer(3.0).timeout
+		if token != _jump_flow_token or not is_instance_valid(self):
+			return
+		if _jump_waiting_for_input and game.current_player == 0 and game.pending_jump_rank != 0 and game.is_game_over() == 0:
+			_do_accept_skip()
+	else:
+		_do_accept_skip()
+
+
+func _cancel_jump_flow() -> void:
+	_jump_flow_token += 1
+	_jump_waiting_for_input = false
+	_jump_pause_active = false
+	if jump_notice_panel != null:
+		jump_notice_panel.visible = false
+
+
+func _do_accept_skip() -> void:
+	_cancel_jump_flow()
+	if game.current_player != 0 or game.pending_jump_rank == 0 or game.is_game_over() != 0:
+		return
+	if not game.accept_jump(0):
+		return
+	_show_deal()
+	_update_turn_label()
+	_update_suit_indicator()
+	_update_ui_state()
+	_check_game_over()
+	_maybe_start_bot()
 
 func _on_niko_kadi_toggled() -> void:
 	if not input_enabled or game.current_player != 0 or game.hands[0].size() != 2:
@@ -316,14 +490,7 @@ func _on_niko_kadi_toggled() -> void:
 func _on_accept_skip_clicked() -> void:
 	if not input_enabled or game.current_player != 0 or game.pending_jump_rank == 0:
 		return
-	if not game.accept_jump(0):
-		return
-	_show_deal()
-	_update_turn_label()
-	_update_suit_indicator()
-	_update_ui_state()
-	_check_game_over()
-	_maybe_start_bot()
+	_do_accept_skip()
 
 func _update_suit_indicator() -> void:
 	if suit_indicator_label == null or game == null:
@@ -430,7 +597,9 @@ func _update_turn_label() -> void:
 		if game.pending_penalty > 0:
 			turn_label.text = "Pick up %d, or stack a 2/3, or block with an Ace" % game.pending_penalty
 		elif game.pending_jump_rank != 0:
-			if game.has_legal_move(0):
+			if _jump_pause_active or _jump_waiting_for_input:
+				turn_label.text = "Counter with a J/K, or accept skip"
+			elif game.has_legal_move(0):
 				var r = "J" if game.pending_jump_rank == 11 else "K"
 				turn_label.text = "Counter with a %s, or accept skip" % r
 			else:
@@ -541,6 +710,7 @@ func _on_card_clicked(card: Card) -> bool:
 		return false
 	var had_penalty := game.pending_penalty > 0
 	if game.play_card(0, card, is_niko_kadi_declared):
+		_cancel_jump_flow()
 		_answer_timer_token += 1
 		is_niko_kadi_declared = false
 		_update_niko_kadi_button_style()
@@ -595,17 +765,26 @@ func _shake_card(card: Card) -> void:
 			break
 
 func _check_game_over() -> void:
-	var result = game.is_game_over()
-	if result == 1:
-		input_enabled = false
-		game_over_label.text = "You win!"
-		game_over_label.visible = true
-		_update_ui_state()
-	elif result == 2:
-		input_enabled = false
-		game_over_label.text = "You lose!"
-		game_over_label.visible = true
-		_update_ui_state()
+	if game == null or _game_over_shown:
+		return
+	var result := game.is_game_over()
+	if result == 0:
+		return
+	_game_over_shown = true
+	_game_over_result = result
+	input_enabled = false
+	_cancel_jump_flow()
+	_show_deal()  # leave the winning card on the table during the reveal
+	_update_ui_state()
+	_update_declaration_banner()
+
+	# Never flash the result instantly: let the final card sit for ~1.5 seconds.
+	await get_tree().create_timer(1.5).timeout
+	if not is_instance_valid(self):
+		return
+	game_over_label.text = "You win!" if result == 1 else "You lose!"
+	game_over_label.visible = true
+	_update_declaration_banner()
 
 # Instantiate the scene (not just the script) so the CardView has its Sprite2D,
 # and add it to the tree before set_card() so @onready is assigned.
