@@ -44,10 +44,15 @@ func top_card() -> Card:
 	return discard_pile.back()
 
 
+func has_declared(player: int) -> bool:
+	return declared[player] and hands[player].size() == 1
+
+
 # Is this card legal for the current player right now?
 func can_play(card: Card) -> bool:
 	# Your last card is locked until you have declared AND the opponent
 	# has had a full turn. It must also be a plain card (4-10).
+	# An Ace may be played as a last card, but it never wins.
 	if hands[current_player].size() == 1 and card.rank != 14:
 		if not (card.is_plain() and declared[current_player] and unlocked[current_player]):
 			return false
@@ -55,9 +60,10 @@ func can_play(card: Card) -> bool:
 	if pending_jump_rank != 0:
 		return card.rank == pending_jump_rank  # J answers J, K answers K
 	if card.rank == 14:
-		return true  # an Ace goes on anything, and cancels a 2/3 stack
+		return true  # an Ace goes on anything and cancels a 2/3 stack
 	if pending_penalty > 0:
-		return card.rank == 2 or card.rank == 3
+		var is_pick_card: bool = card.rank == 2 or card.rank == 3
+		return is_pick_card and (card.suit == current_suit or card.rank == top_card().rank)
 	if awaiting_answer:
 		return card.suit == question_suit
 	return card.suit == current_suit or card.rank == top_card().rank
@@ -72,57 +78,70 @@ func has_legal_move(player: int) -> bool:
 	return false
 
 
-# declare = true when the player pressed "Niko Kadi" with this play
 func play_card(player: int, card: Card, declare: bool) -> bool:
-	if player != current_player or awaiting_suit_choice or not can_play(card):
+	var single: Array[Card] = [card]
+	return play_cards(player, single, declare)
+
+
+# cards = the play order. The first must be legal; all must share one rank.
+# The last card played sets the suit in play.
+func play_cards(player: int, cards: Array[Card], declare: bool) -> bool:
+	if player != current_player or awaiting_suit_choice or cards.is_empty():
+		return false
+	var rank: int = cards[0].rank
+	for card in cards:
+		if card.rank != rank or cards.count(card) != 1 or not hands[player].has(card):
+			return false
+	if cards.size() > 1 and cards.size() >= hands[player].size():
+		return false  # a chain can never empty your hand
+	if not can_play(cards[0]):
 		return false
 
-	hands[player].erase(card)
-	discard_pile.append(card)
-	current_suit = card.suit
+	for card in cards:
+		hands[player].erase(card)
+		discard_pile.append(card)
+	current_suit = cards.back().suit
 	awaiting_answer = false
 
 	# A play that leaves exactly 1 card must declare, otherwise the last card stays locked
 	declared[player] = hands[player].size() == 1 and declare
 	unlocked[player] = false
 
-	match card.rank:
+	var count: int = cards.size()
+	match rank:
 		2, 3:
-			pending_penalty += card.rank
+			pending_penalty += rank * count
 			_end_turn(player)
 		14:
 			if pending_penalty > 0:
-				pending_penalty = 0  # the Ace only blocks: no suit choice
-				_finish_empty_hand_without_win(player)
-				_end_turn(player)
+				pending_penalty = 0  # the first Ace blocks
+				if count >= 2:
+					awaiting_suit_choice = true  # the second Ace changes the suit
+				else:
+					_finish_empty_hand_without_win(player)
+					_end_turn(player)
 			else:
 				awaiting_suit_choice = true
 		11, 13:
-			pending_jump_rank = card.rank
+			pending_jump_rank = rank
 			pending_jump_by = player
 			current_player = 1 - player  # the other player may counter or accept
 		12, 8:
 			awaiting_answer = true
-			question_suit = card.suit
+			question_suit = current_suit
 		_:
 			_end_turn(player)
 	return true
 
 
-# An Ace (or any special card) can be a player's last card but never wins:
-# they pick up 1 card instead.
-func _finish_empty_hand_without_win(player: int) -> void:
-	if hands[player].is_empty():
-		hands[player].append(_draw_card())
-		declared[player] = false
-		unlocked[player] = false
-
-
-func choose_suit(player: int, suit: int) -> bool:
+func choose_suit(player: int, suit: int, declare: bool) -> bool:
 	if player != current_player or not awaiting_suit_choice:
 		return false
 	current_suit = suit
 	awaiting_suit_choice = false
+	# Declaring here counts as declaring on the Ace play: you are left with 1 card
+	if hands[player].size() == 1 and declare:
+		declared[player] = true
 	_finish_empty_hand_without_win(player)
 	_end_turn(player)
 	return true
@@ -158,6 +177,14 @@ func pick_up(player: int) -> void:
 	_end_turn(player)
 
 
+# A special card can be a player's last card but never wins: they pick up 1 card.
+func _finish_empty_hand_without_win(player: int) -> void:
+	if hands[player].is_empty():
+		hands[player].append(_draw_card())
+		declared[player] = false
+		unlocked[player] = false
+
+
 func _draw_card() -> Card:
 	if draw_pile.cards.is_empty():
 		_reshuffle()
@@ -182,10 +209,6 @@ func _end_turn(player: int) -> void:
 	if declared[other]:
 		unlocked[other] = true
 	current_player = other
-
-
-func has_declared(player: int) -> bool:
-	return declared[player] and hands[player].size() == 1
 
 
 func is_game_over() -> int:

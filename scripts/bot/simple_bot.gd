@@ -19,7 +19,7 @@ func take_turn(game: GameState, tree: SceneTree, on_step: Callable) -> void:
 				if counts[s] > max_count:
 					max_count = counts[s]
 					best_suit = s
-			game.choose_suit(1, best_suit)
+			game.choose_suit(1, best_suit, game.hands[1].size() == 1)
 		elif game.pending_jump_rank != 0:
 			var countered := false
 			for card in game.hands[1]:

@@ -66,8 +66,8 @@ class TracedGame extends GameState:
 			trace.append("ACTION p%d ACCEPT_JUMP REJECTED" % player)
 		return ok
 
-	func choose_suit(player: int, suit: int) -> bool:
-		var ok := super.choose_suit(player, suit)
+	func choose_suit(player: int, suit: int, declare: bool) -> bool:
+		var ok := super.choose_suit(player, suit, declare)
 		if ok:
 			_state_line("ACTION p%d CHOOSE_SUIT %s" % [player, SUITS[suit]])
 		return ok
@@ -208,7 +208,7 @@ func _scenario_random_game() -> bool:
 				for s in range(1, 4):
 					if counts[s] > counts[best]:
 						best = s
-				game.choose_suit(0, best)
+				game.choose_suit(0, best, false)
 			elif game.pending_jump_rank != 0:
 				var countered := false
 				for c in game.hands[0]:

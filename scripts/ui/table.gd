@@ -28,7 +28,10 @@ var suit_picker_overlay: ColorRect
 var suit_buttons: Array[Button] = []
 var niko_kadi_button: Button
 var niko_kadi_hint: Label
+var suit_picker_niko_button: Button
+var locked_hint: Label
 var is_niko_kadi_declared: bool = false
+var is_suit_picker_niko: bool = false
 var accept_skip_button: Button
 var jump_notice_panel: Panel
 var jump_notice_label: Label
@@ -183,6 +186,14 @@ func _create_suit_picker() -> void:
 		suit_picker_overlay.add_child(btn)
 		suit_buttons.append(btn)
 
+	suit_picker_niko_button = Button.new()
+	suit_picker_niko_button.size = Vector2(300, 42)
+	suit_picker_niko_button.position = Vector2(210, 770)
+	suit_picker_niko_button.add_theme_font_size_override("font_size", 20)
+	suit_picker_niko_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_update_suit_picker_niko_style()
+	suit_picker_overlay.add_child(suit_picker_niko_button)
+
 func _create_niko_kadi_button() -> void:
 	niko_kadi_button = Button.new()
 	niko_kadi_button.text = "Niko Kadi: OFF"
@@ -206,6 +217,18 @@ func _create_niko_kadi_button() -> void:
 	niko_kadi_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	niko_kadi_hint.z_index = 20
 	add_child(niko_kadi_hint)
+
+	locked_hint = Label.new()
+	locked_hint.text = "Last card locked: you didn't declare Niko Kadi. Tap the draw pile."
+	locked_hint.size = Vector2(640, 42)
+	locked_hint.position = Vector2(40.0, 1055.0)
+	locked_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	locked_hint.add_theme_font_size_override("font_size", 18)
+	locked_hint.add_theme_color_override("font_color", Color(1.0, 0.55, 0.55))
+	locked_hint.visible = false
+	locked_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	locked_hint.z_index = 20
+	add_child(locked_hint)
 
 func _create_accept_skip_button() -> void:
 	accept_skip_button = Button.new()
@@ -248,6 +271,27 @@ func _update_niko_kadi_button_style() -> void:
 		niko_kadi_button.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 		
 	niko_kadi_button.add_theme_stylebox_override("normal", style)
+
+func _update_suit_picker_niko_style() -> void:
+	assert(suit_picker_niko_button != null, "Suit picker Niko Kadi button must be created")
+	var style := StyleBoxFlat.new()
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	style.shadow_size = 2
+	style.shadow_color = Color(0, 0, 0, 0.25)
+
+	if is_suit_picker_niko:
+		suit_picker_niko_button.text = "Niko Kadi: ON"
+		style.bg_color = Color(0.2, 0.75, 0.25)
+		suit_picker_niko_button.add_theme_color_override("font_color", Color.WHITE)
+	else:
+		suit_picker_niko_button.text = "Niko Kadi: OFF"
+		style.bg_color = Color(0.92, 0.92, 0.92)
+		suit_picker_niko_button.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+
+	suit_picker_niko_button.add_theme_stylebox_override("normal", style)
 
 func _create_declaration_banners() -> void:
 	opponent_banner = _make_declaration_banner(OPPONENT_BANNER_TEXT, Color(0.62, 0.05, 0.08), Vector2(10.0, 8.0))
@@ -350,6 +394,7 @@ func _process(delta: float) -> void:
 
 	_update_declaration_banner()
 	_check_jump_state()
+	_update_locked_hint()
 
 	# Pulse/flash so the banner cannot be mistaken for a static HUD element.
 	_pulse_time += delta
@@ -377,6 +422,7 @@ func _update_ui_state() -> void:
 	if game.is_game_over() != 0:
 		niko_kadi_button.visible = false
 		niko_kadi_hint.visible = false
+		locked_hint.visible = false
 		accept_skip_button.visible = false
 		_update_declaration_banner()
 		return
@@ -390,6 +436,15 @@ func _update_ui_state() -> void:
 
 	_update_declaration_banner()
 	_check_jump_state()
+
+
+func _update_locked_hint() -> void:
+	var locked: bool = false
+	if game.hands[0].size() == 1 and game.is_game_over() == 0:
+		var last_card: Card = game.hands[0][0]
+		locked = not game.has_declared(0) and not game.can_play(last_card)
+	locked_hint.visible = locked
+
 
 func _check_jump_state() -> void:
 	var active := game.current_player == 0 and game.pending_jump_rank != 0 and game.is_game_over() == 0
@@ -469,6 +524,12 @@ func _on_niko_kadi_toggled() -> void:
 	is_niko_kadi_declared = not is_niko_kadi_declared
 	_update_niko_kadi_button_style()
 
+func _on_suit_picker_niko_toggled() -> void:
+	if not input_enabled or game.current_player != 0 or game.hands[0].size() != 1:
+		return
+	is_suit_picker_niko = not is_suit_picker_niko
+	_update_suit_picker_niko_style()
+
 func _on_accept_skip_clicked() -> void:
 	if not input_enabled or game.current_player != 0 or game.pending_jump_rank == 0:
 		return
@@ -483,11 +544,19 @@ func _update_suit_indicator() -> void:
 		suit_indicator_label.add_theme_color_override("font_color", Color(0.12, 0.12, 0.12))
 
 func _show_suit_picker() -> void:
+	is_suit_picker_niko = false
+	_update_suit_picker_niko_style()
+	suit_picker_niko_button.visible = (game.hands[0].size() == 1)
 	suit_picker_overlay.visible = true
 
 func _on_suit_chosen(suit: int) -> void:
-	if not game.choose_suit(0, suit):
+	var declare: bool = is_suit_picker_niko
+	if declare:
+		assert(game.hands[0].size() == 1, "Suit-picker declaration requires exactly one card")
+	if not game.choose_suit(0, suit, declare):
 		return
+	is_suit_picker_niko = false
+	_update_suit_picker_niko_style()
 	suit_picker_overlay.visible = false
 	_show_deal()
 	_update_turn_label()
@@ -506,6 +575,9 @@ func _input(event: InputEvent) -> void:
 
 	# While the suit picker is showing, handle its buttons and ignore clicks on cards and draw pile
 	if suit_picker_overlay.visible:
+		if suit_picker_niko_button.visible and suit_picker_niko_button.get_global_rect().has_point(click_pos):
+			_on_suit_picker_niko_toggled()
+			return
 		for s in 4:
 			var btn := suit_buttons[s]
 			if btn.get_global_rect().has_point(click_pos):

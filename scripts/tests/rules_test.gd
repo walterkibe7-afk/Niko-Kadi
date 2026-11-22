@@ -23,6 +23,14 @@ func _init() -> void:
 	all_passed = test_bot_counters_jump() and all_passed
 	all_passed = test_lone_ace_last_card_no_win() and all_passed
 
+	# Chain / question-card tests
+	all_passed = test_chain_answer_after_queen() and all_passed
+	all_passed = test_queen_answers_eight_and_plain() and all_passed
+	all_passed = test_chain_queen_question_suit() and all_passed
+	all_passed = test_wrong_suit_answer_rejected() and all_passed
+	all_passed = test_ace_of_other_suit_answers() and all_passed
+	all_passed = test_two_answer_adds_penalty() and all_passed
+
 	if all_passed:
 		print("\nALL RULE TESTS PASSED")
 	else:
@@ -506,7 +514,7 @@ func test_lone_ace_last_card_no_win() -> bool:
 		print("FAIL: test_lone_ace_last_card_no_win (awaiting suit, not over)")
 		return false
 		
-	game.choose_suit(0, 1) # choose Diamonds
+	game.choose_suit(0, 1, false) # choose Diamonds
 	if game.hands[0].size() != 1:
 		print("FAIL: test_lone_ace_last_card_no_win (should have picked up 1 card)")
 		return false
@@ -518,4 +526,205 @@ func test_lone_ace_last_card_no_win() -> bool:
 		return false
 		
 	print("PASS: lone Ace plays, chooses suit, picks up 1 card, no win shown")
+	return true
+
+
+# --- Chain / question-card tests ---
+
+func test_chain_answer_after_queen() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	if not game.has_method("play_cards"):
+		print("FAIL: test_chain_answer_after_queen (GameState.play_cards is not implemented)")
+		return false
+	game.discard_pile = [Card.new(9, 0)]
+	game.current_suit = 0
+	game.current_player = 0
+
+	var queen := Card.new(12, 0)
+	var five_hearts := Card.new(5, 0)
+	var five_diamonds := Card.new(5, 1)
+	game.hands[0] = [queen, five_hearts, five_diamonds, Card.new(7, 2)]
+	game.hands[1] = [Card.new(6, 0), Card.new(6, 1)]
+
+	if not game.play_card(0, queen, false):
+		print("FAIL: test_chain_answer_after_queen (play QH)")
+		return false
+	if not game.awaiting_answer:
+		print("FAIL: test_chain_answer_after_queen (QH did not open a question)")
+		return false
+
+	var chain: Array[Card] = [five_hearts, five_diamonds]
+	if not game.play_cards(0, chain, false):
+		print("FAIL: test_chain_answer_after_queen (5H+5D chain rejected as answer)")
+		return false
+	if game.awaiting_answer or game.current_suit != 1 or game.current_player != 1:
+		print("FAIL: test_chain_answer_after_queen (state after chain)")
+		return false
+	if game.top_card() != five_diamonds or game.hands[0].size() != 1:
+		print("FAIL: test_chain_answer_after_queen (last card and remaining hand)")
+		return false
+
+	print("PASS: a 5H + 5D chain answers a QH")
+	return true
+
+
+func test_queen_answers_eight_and_plain() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(9, 0)]
+	game.current_suit = 0
+	game.current_player = 0
+
+	var queen := Card.new(12, 0)
+	var eight := Card.new(8, 0)
+	var five := Card.new(5, 0)
+	game.hands[0] = [queen, eight, five, Card.new(7, 2)]
+	game.hands[1] = [Card.new(6, 0), Card.new(6, 1)]
+
+	if not game.play_card(0, queen, false):
+		print("FAIL: test_queen_answers_eight_and_plain (play QH)")
+		return false
+	if not game.awaiting_answer or game.question_suit != 0:
+		print("FAIL: test_queen_answers_eight_and_plain (question after QH)")
+		return false
+	if not game.play_card(0, eight, false):
+		print("FAIL: test_queen_answers_eight_and_plain (8H answer rejected)")
+		return false
+	if not game.awaiting_answer or game.question_suit != 0 or game.current_player != 0:
+		print("FAIL: test_queen_answers_eight_and_plain (8H did not open a new question)")
+		return false
+	if not game.play_card(0, five, false):
+		print("FAIL: test_queen_answers_eight_and_plain (5H answer rejected)")
+		return false
+	if game.awaiting_answer or game.current_player != 1:
+		print("FAIL: test_queen_answers_eight_and_plain (5H did not end the question)")
+		return false
+
+	print("PASS: an 8H answer opens a new question and a 5H ends it")
+	return true
+
+
+func test_chain_queen_question_suit() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	if not game.has_method("play_cards"):
+		print("FAIL: test_chain_queen_question_suit (GameState.play_cards is not implemented)")
+		return false
+	game.discard_pile = [Card.new(9, 0)]
+	game.current_suit = 0
+	game.current_player = 0
+
+	var queen_hearts := Card.new(12, 0)
+	var queen_diamonds := Card.new(12, 1)
+	var six_hearts := Card.new(6, 0)
+	var six_diamonds := Card.new(6, 1)
+	game.hands[0] = [queen_hearts, queen_diamonds, six_hearts, six_diamonds, Card.new(7, 2)]
+	game.hands[1] = [Card.new(5, 0), Card.new(5, 1)]
+
+	var chain: Array[Card] = [queen_hearts, queen_diamonds]
+	if not game.play_cards(0, chain, false):
+		print("FAIL: test_chain_queen_question_suit (QH+QD chain rejected)")
+		return false
+	if not game.awaiting_answer or game.question_suit != 1:
+		print("FAIL: test_chain_queen_question_suit (chain did not open a Diamonds question)")
+		return false
+	if not game.can_play(six_diamonds) or game.can_play(six_hearts):
+		print("FAIL: test_chain_queen_question_suit (only Diamonds should answer)")
+		return false
+	if not game.play_card(0, six_diamonds, false):
+		print("FAIL: test_chain_queen_question_suit (6D answer rejected)")
+		return false
+	if game.awaiting_answer or game.current_player != 1:
+		print("FAIL: test_chain_queen_question_suit (6D did not end the question)")
+		return false
+
+	print("PASS: a QH+QD chain opens a Diamonds-only question")
+	return true
+
+
+func test_wrong_suit_answer_rejected() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(9, 0)]
+	game.current_suit = 0
+	game.current_player = 0
+
+	var queen := Card.new(12, 0)
+	var wrong := Card.new(5, 1)
+	game.hands[0] = [queen, wrong, Card.new(7, 2)]
+	game.hands[1] = [Card.new(6, 0), Card.new(6, 1)]
+
+	if not game.play_card(0, queen, false):
+		print("FAIL: test_wrong_suit_answer_rejected (play QH)")
+		return false
+	if game.can_play(wrong):
+		print("FAIL: test_wrong_suit_answer_rejected (5D was legal against a Hearts question)")
+		return false
+	if game.play_card(0, wrong, false):
+		print("FAIL: test_wrong_suit_answer_rejected (5D accepted as answer)")
+		return false
+	if not game.awaiting_answer or game.hands[0].size() != 2:
+		print("FAIL: test_wrong_suit_answer_rejected (question or hand changed on rejection)")
+		return false
+
+	print("PASS: a wrong-suit card is rejected as an answer")
+	return true
+
+
+func test_ace_of_other_suit_answers() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(9, 0)]
+	game.current_suit = 0
+	game.current_player = 0
+
+	var queen := Card.new(12, 0)
+	var ace := Card.new(14, 1)
+	game.hands[0] = [queen, ace, Card.new(7, 2)]
+	game.hands[1] = [Card.new(6, 0), Card.new(6, 1)]
+
+	if not game.play_card(0, queen, false):
+		print("FAIL: test_ace_of_other_suit_answers (play QH)")
+		return false
+	if not game.can_play(ace):
+		print("FAIL: test_ace_of_other_suit_answers (AD was not legal against a Hearts question)")
+		return false
+	if not game.play_card(0, ace, false):
+		print("FAIL: test_ace_of_other_suit_answers (AD answer rejected)")
+		return false
+	if not game.awaiting_suit_choice or game.current_player != 0:
+		print("FAIL: test_ace_of_other_suit_answers (Ace did not open a suit choice)")
+		return false
+
+	print("PASS: an Ace of another suit is accepted as an answer")
+	return true
+
+
+func test_two_answer_adds_penalty() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(9, 0)]
+	game.current_suit = 0
+	game.current_player = 0
+
+	var queen := Card.new(12, 0)
+	var two := Card.new(2, 0)
+	game.hands[0] = [queen, two, Card.new(7, 2)]
+	game.hands[1] = [Card.new(6, 0), Card.new(6, 1)]
+
+	if not game.play_card(0, queen, false):
+		print("FAIL: test_two_answer_adds_penalty (play QH)")
+		return false
+	if not game.can_play(two):
+		print("FAIL: test_two_answer_adds_penalty (2H was not legal against a Hearts question)")
+		return false
+	if not game.play_card(0, two, false):
+		print("FAIL: test_two_answer_adds_penalty (2H answer rejected)")
+		return false
+	if game.pending_penalty != 2 or game.awaiting_answer or game.current_player != 1:
+		print("FAIL: test_two_answer_adds_penalty (penalty/turn after 2H answer)")
+		return false
+
+	print("PASS: a 2H answer leaves the opponent facing a pending penalty of 2")
 	return true
