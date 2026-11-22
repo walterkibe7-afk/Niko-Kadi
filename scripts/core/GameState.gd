@@ -6,6 +6,7 @@ var discard_pile: Array[Card] = []
 var hands: Array[Array] = [[], []]  # 0 = you, 1 = opponent
 var current_suit: int
 var current_player: int = 0  # 0 = you, 1 = opponent
+var awaiting_suit_choice: bool = false  # true after an Ace, until a suit is chosen
 
 func start_game() -> void:
 	draw_pile = Deck.new()
@@ -34,16 +35,27 @@ func can_play(card: Card) -> bool:
 	return card.suit == current_suit or card.rank == top_card().rank
 
 func play_card(player: int, card: Card) -> bool:
-	if player != current_player or not can_play(card):
+	if player != current_player or awaiting_suit_choice or not can_play(card):
 		return false
 	hands[player].erase(card)
 	discard_pile.append(card)
 	current_suit = card.suit
+	if card.rank == 14:
+		awaiting_suit_choice = true  # same player must now choose a suit
+	else:
+		_next_turn()
+	return true
+
+func choose_suit(player: int, suit: int) -> bool:
+	if player != current_player or not awaiting_suit_choice:
+		return false
+	current_suit = suit
+	awaiting_suit_choice = false
 	_next_turn()
 	return true
 
 func pick_up(player: int) -> void:
-	if player != current_player:
+	if player != current_player or awaiting_suit_choice:
 		return
 	var card := _draw_card()
 	if card != null:

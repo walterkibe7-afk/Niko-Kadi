@@ -7,9 +7,17 @@ const CARD_SIZE := Vector2(120, 168)
 const CARD_VIEW_SCENE := preload("res://scenes/card_view.tscn")
 const SIMPLE_BOT := preload("res://scripts/bot/simple_bot.gd")
 
+const SUIT_SYMBOLS := ["♥", "♦", "♣", "♠"]
+const SUIT_NAMES := ["Hearts", "Diamonds", "Clubs", "Spades"]
+
 var game: GameState
 var turn_label: Label
 var game_over_label: Label
+var notice_banner: Label
+var suit_indicator_panel: Panel
+var suit_indicator_label: Label
+var suit_picker_overlay: ColorRect
+var suit_buttons: Array[Button] = []
 var input_enabled: bool = true
 var my_hand_views: Array[CardView] = []
 var draw_pile_view: CardView = null
@@ -40,8 +48,138 @@ func _ready() -> void:
 	game_over_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(game_over_label)
 	
+	notice_banner = Label.new()
+	notice_banner.text = ""
+	notice_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notice_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	notice_banner.size = Vector2(720, 44)
+	notice_banner.position = Vector2(0, 530)
+	notice_banner.add_theme_font_size_override("font_size", 28)
+	notice_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	notice_banner.visible = false
+	notice_banner.z_index = 50
+	add_child(notice_banner)
+	
+	_create_suit_indicator()
+	_create_suit_picker()
+	
 	_show_deal()
 	_update_turn_label()
+	_update_suit_indicator()
+	_maybe_start_bot()
+
+func _create_suit_indicator() -> void:
+	suit_indicator_panel = Panel.new()
+	suit_indicator_panel.size = Vector2(140, 68)
+	# Position to the right of the top discard card
+	suit_indicator_panel.position = Vector2(SCREEN_SIZE.x / 2.0 + CARD_SIZE.x + 16.0, SCREEN_SIZE.y / 2.0 - 34.0)
+	suit_indicator_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.95, 0.95, 0.95)
+	style.corner_radius_top_left = 10
+	style.corner_radius_top_right = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	style.shadow_color = Color(0, 0, 0, 0.25)
+	style.shadow_size = 3
+	suit_indicator_panel.add_theme_stylebox_override("panel", style)
+	add_child(suit_indicator_panel)
+	
+	suit_indicator_label = Label.new()
+	suit_indicator_label.size = Vector2(140, 68)
+	suit_indicator_label.position = Vector2.ZERO
+	suit_indicator_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	suit_indicator_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	suit_indicator_label.add_theme_font_size_override("font_size", 20)
+	suit_indicator_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	suit_indicator_panel.add_child(suit_indicator_label)
+
+func _create_suit_picker() -> void:
+	suit_picker_overlay = ColorRect.new()
+	suit_picker_overlay.size = SCREEN_SIZE
+	suit_picker_overlay.color = Color(0, 0, 0, 0.7)
+	suit_picker_overlay.visible = false
+	suit_picker_overlay.z_index = 100
+	add_child(suit_picker_overlay)
+	
+	var title := Label.new()
+	title.text = "Choose a Suit"
+	title.size = Vector2(720, 50)
+	title.position = Vector2(0, 380)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 34)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	suit_picker_overlay.add_child(title)
+	
+	var btn_size := Vector2(140, 130)
+	var positions := [
+		Vector2(210, 460), # Hearts
+		Vector2(370, 460), # Diamonds
+		Vector2(210, 610), # Clubs
+		Vector2(370, 610)  # Spades
+	]
+	
+	for s in 4:
+		var btn := Button.new()
+		btn.text = "%s\n%s" % [SUIT_SYMBOLS[s], SUIT_NAMES[s]]
+		btn.size = btn_size
+		btn.position = positions[s]
+		btn.add_theme_font_size_override("font_size", 28)
+		
+		var style_normal := StyleBoxFlat.new()
+		style_normal.bg_color = Color(0.96, 0.96, 0.96)
+		style_normal.corner_radius_top_left = 12
+		style_normal.corner_radius_top_right = 12
+		style_normal.corner_radius_bottom_left = 12
+		style_normal.corner_radius_bottom_right = 12
+		style_normal.shadow_color = Color(0, 0, 0, 0.3)
+		style_normal.shadow_size = 4
+		btn.add_theme_stylebox_override("normal", style_normal)
+		
+		var style_hover := style_normal.duplicate() as StyleBoxFlat
+		style_hover.bg_color = Color(1.0, 1.0, 1.0)
+		btn.add_theme_stylebox_override("hover", style_hover)
+		
+		var style_pressed := style_normal.duplicate() as StyleBoxFlat
+		style_pressed.bg_color = Color(0.88, 0.88, 0.88)
+		btn.add_theme_stylebox_override("pressed", style_pressed)
+		
+		if s == 0 or s == 1:
+			btn.add_theme_color_override("font_color", Color(0.85, 0.1, 0.1))
+			btn.add_theme_color_override("font_hover_color", Color(0.75, 0.05, 0.05))
+			btn.add_theme_color_override("font_pressed_color", Color(0.6, 0.0, 0.0))
+		else:
+			btn.add_theme_color_override("font_color", Color(0.12, 0.12, 0.12))
+			btn.add_theme_color_override("font_hover_color", Color(0.25, 0.25, 0.25))
+			btn.add_theme_color_override("font_pressed_color", Color(0.0, 0.0, 0.0))
+		
+		btn.pressed.connect(_on_suit_chosen.bind(s))
+		suit_picker_overlay.add_child(btn)
+		suit_buttons.append(btn)
+
+func _update_suit_indicator() -> void:
+	if suit_indicator_label == null or game == null:
+		return
+	var s: int = game.current_suit
+	suit_indicator_label.text = "Suit:\n%s %s" % [SUIT_SYMBOLS[s], SUIT_NAMES[s]]
+	if s == 0 or s == 1:
+		suit_indicator_label.add_theme_color_override("font_color", Color(0.85, 0.1, 0.1))
+	else:
+		suit_indicator_label.add_theme_color_override("font_color", Color(0.12, 0.12, 0.12))
+
+func _show_suit_picker() -> void:
+	suit_picker_overlay.visible = true
+
+func _on_suit_chosen(suit: int) -> void:
+	if not game.choose_suit(0, suit):
+		return
+	suit_picker_overlay.visible = false
+	_show_deal()
+	_update_turn_label()
+	_update_suit_indicator()
+	_check_game_over()
 	_maybe_start_bot()
 
 func _input(event: InputEvent) -> void:
@@ -51,6 +189,15 @@ func _input(event: InputEvent) -> void:
 		return
 
 	var click_pos: Vector2 = get_canvas_transform().affine_inverse() * event.position
+
+	# While the suit picker is showing, handle its buttons and ignore clicks on cards and draw pile
+	if suit_picker_overlay != null and suit_picker_overlay.visible:
+		for s in 4:
+			var btn := suit_buttons[s]
+			if btn.get_global_rect().has_point(click_pos):
+				_on_suit_chosen(s)
+				return
+		return
 
 	for i in range(my_hand_views.size() - 1, -1, -1):
 		var cv := my_hand_views[i]
@@ -109,25 +256,46 @@ func _update_turn_label() -> void:
 
 func _maybe_start_bot() -> void:
 	if game.current_player == 1 and input_enabled:
+		var prev_discard_size := game.discard_pile.size()
 		var bot = SIMPLE_BOT.new()
 		await bot.take_turn(game, get_tree())
+		var bot_played_ace := (game.discard_pile.size() > prev_discard_size and game.top_card().rank == 14)
 		_on_bot_done()
+		if bot_played_ace:
+			_show_opponent_notice()
+
+func _show_opponent_notice() -> void:
+	var s: int = game.current_suit
+	notice_banner.text = "Opponent chose %s" % SUIT_SYMBOLS[s]
+	if s == 0 or s == 1:
+		notice_banner.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	else:
+		notice_banner.add_theme_color_override("font_color", Color.WHITE)
+	notice_banner.visible = true
+	var timer := get_tree().create_timer(2.0)
+	await timer.timeout
+	notice_banner.visible = false
 
 func _on_bot_done() -> void:
 	_show_deal()
 	_update_turn_label()
+	_update_suit_indicator()
 	_check_game_over()
 	if input_enabled and game.current_player == 1:
 		_maybe_start_bot()
 
 func _on_card_clicked(card: Card) -> bool:
-	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0:
+	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0 or game.awaiting_suit_choice:
 		return false
 	if game.play_card(0, card):
 		_show_deal()
 		_update_turn_label()
+		_update_suit_indicator()
 		_check_game_over()
-		_maybe_start_bot()
+		if game.awaiting_suit_choice and game.current_player == 0:
+			_show_suit_picker()
+		else:
+			_maybe_start_bot()
 		return true
 	else:
 		# Illegal move - shake the card
@@ -135,11 +303,12 @@ func _on_card_clicked(card: Card) -> bool:
 		return false
 
 func _on_draw_pile_clicked() -> void:
-	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0:
+	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0 or game.awaiting_suit_choice:
 		return
 	game.pick_up(0)
 	_show_deal()
 	_update_turn_label()
+	_update_suit_indicator()
 	_check_game_over()
 	_maybe_start_bot()
 
