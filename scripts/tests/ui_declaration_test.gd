@@ -43,6 +43,7 @@ func _run() -> void:
 
 	# --- Banner visibility and text ---
 	table.game = _fresh_game()
+	table.game.hands[1] = [Card.new(6, Card.Suit.CLUBS)]
 	table.game.declared[1] = true
 	table._process(0.016)
 	_ok(table.opponent_banner.visible, "opponent banner appears when declared[1] turns true")
@@ -50,6 +51,7 @@ func _run() -> void:
 	_ok(not table.player_banner.visible, "player banner hidden while only opponent declared")
 
 	table.game.declared[1] = false
+	table.game.hands[0] = [Card.new(6, Card.Suit.CLUBS)]
 	table.game.declared[0] = true
 	table._process(0.016)
 	_ok(table.player_banner.visible, "player banner appears for my declaration")

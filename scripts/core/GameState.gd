@@ -73,7 +73,7 @@ func has_legal_move(player: int) -> bool:
 
 
 # declare = true when the player pressed "Niko Kadi" with this play
-func play_card(player: int, card: Card, declare: bool = false) -> bool:
+func play_card(player: int, card: Card, declare: bool) -> bool:
 	if player != current_player or awaiting_suit_choice or not can_play(card):
 		return false
 
@@ -113,9 +113,7 @@ func play_card(player: int, card: Card, declare: bool = false) -> bool:
 # they pick up 1 card instead.
 func _finish_empty_hand_without_win(player: int) -> void:
 	if hands[player].is_empty():
-		var card := _draw_card()
-		if card != null:
-			hands[player].append(card)
+		hands[player].append(_draw_card())
 		declared[player] = false
 		unlocked[player] = false
 
@@ -125,13 +123,7 @@ func choose_suit(player: int, suit: int) -> bool:
 		return false
 	current_suit = suit
 	awaiting_suit_choice = false
-	# An Ace played as your last card never wins: pick up 1 card instead
-	if hands[player].is_empty():
-		var card := _draw_card()
-		if card != null:
-			hands[player].append(card)
-		declared[player] = false
-		unlocked[player] = false
+	_finish_empty_hand_without_win(player)
 	_end_turn(player)
 	return true
 
@@ -159,9 +151,7 @@ func pick_up(player: int) -> void:
 		count = pending_penalty
 		pending_penalty = 0
 	for i in count:
-		var card := _draw_card()
-		if card != null:
-			hands[player].append(card)
+		hands[player].append(_draw_card())
 	awaiting_answer = false
 	declared[player] = false  # picking up voids a declaration
 	unlocked[player] = false
@@ -171,7 +161,9 @@ func pick_up(player: int) -> void:
 func _draw_card() -> Card:
 	if draw_pile.cards.is_empty():
 		_reshuffle()
-	return draw_pile.draw()
+	var card: Card = draw_pile.draw()
+	assert(card != null, "No cards left to draw")
+	return card
 
 
 # Keep the top card in play, shuffle the rest back into the draw pile
@@ -190,6 +182,10 @@ func _end_turn(player: int) -> void:
 	if declared[other]:
 		unlocked[other] = true
 	current_player = other
+
+
+func has_declared(player: int) -> bool:
+	return declared[player] and hands[player].size() == 1
 
 
 func is_game_over() -> int:

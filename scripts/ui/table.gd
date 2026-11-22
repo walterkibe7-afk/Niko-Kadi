@@ -230,8 +230,6 @@ func _create_accept_skip_button() -> void:
 	add_child(accept_skip_button)
 
 func _update_niko_kadi_button_style() -> void:
-	if niko_kadi_button == null:
-		return
 	var style := StyleBoxFlat.new()
 	style.corner_radius_top_left = 8
 	style.corner_radius_top_right = 8
@@ -335,18 +333,15 @@ func _create_jump_notice() -> void:
 
 
 func _process(delta: float) -> void:
-	if game == null:
-		return
-
 	# Catch the exact frame a declaration appears, even if no UI refresh follows.
-	var opp_declared := game.declared[1]
+	var opp_declared := game.has_declared(1)
 	if opp_declared and not _opp_declare_seen:
 		_opp_declare_seen = true
 		_opp_declare_until_msec = Time.get_ticks_msec() + 2500
 	elif not opp_declared:
 		_opp_declare_seen = false
 
-	var my_declared := game.declared[0]
+	var my_declared := game.has_declared(0)
 	if my_declared and not _my_declare_seen:
 		_my_declare_seen = true
 		_my_declare_until_msec = Time.get_ticks_msec() + 2500
@@ -360,15 +355,13 @@ func _process(delta: float) -> void:
 	_pulse_time += delta
 	var wave := 0.5 + 0.5 * sin(_pulse_time * 8.0)
 	for banner in [opponent_banner, player_banner]:
-		if banner != null and banner.visible:
+		if banner.visible:
 			banner.modulate = Color(1, 1, 1, 0.65 + 0.35 * wave)
 			banner.scale = Vector2.ONE * (1.0 + 0.02 * wave)
 
 
 func _update_declaration_banner() -> void:
-	if opponent_banner == null or player_banner == null or game == null:
-		return
-	if game_over_label != null and game_over_label.visible:
+	if game_over_label.visible:
 		opponent_banner.visible = false
 		player_banner.visible = false
 		return
@@ -377,35 +370,28 @@ func _update_declaration_banner() -> void:
 	# winning play cannot wipe it out before the player has time to read it.
 	var in_final_reveal := _game_over_shown and not game_over_label.visible
 	var now := Time.get_ticks_msec()
-	opponent_banner.visible = game.declared[1] or (in_final_reveal and now < _opp_declare_until_msec)
-	player_banner.visible = game.declared[0] or (in_final_reveal and now < _my_declare_until_msec)
+	opponent_banner.visible = game.has_declared(1) or (in_final_reveal and now < _opp_declare_until_msec)
+	player_banner.visible = game.has_declared(0) or (in_final_reveal and now < _my_declare_until_msec)
 
 func _update_ui_state() -> void:
-	if game == null or game.is_game_over() != 0:
-		if niko_kadi_button != null:
-			niko_kadi_button.visible = false
-		if niko_kadi_hint != null:
-			niko_kadi_hint.visible = false
-		if accept_skip_button != null:
-			accept_skip_button.visible = false
+	if game.is_game_over() != 0:
+		niko_kadi_button.visible = false
+		niko_kadi_hint.visible = false
+		accept_skip_button.visible = false
 		_update_declaration_banner()
 		return
 
-	if niko_kadi_button != null:
-		var show_niko = (game.hands[0].size() == 2 and game.current_player == 0 and game.has_legal_move(0) and not game.awaiting_suit_choice)
-		niko_kadi_button.visible = show_niko
-		if niko_kadi_hint != null:
-			niko_kadi_hint.visible = show_niko
-		if not show_niko and is_niko_kadi_declared:
-			is_niko_kadi_declared = false
-			_update_niko_kadi_button_style()
+	var show_niko = (game.hands[0].size() == 2 and game.current_player == 0 and game.has_legal_move(0) and not game.awaiting_suit_choice)
+	niko_kadi_button.visible = show_niko
+	niko_kadi_hint.visible = show_niko
+	if not show_niko and is_niko_kadi_declared:
+		is_niko_kadi_declared = false
+		_update_niko_kadi_button_style()
 
 	_update_declaration_banner()
 	_check_jump_state()
 
 func _check_jump_state() -> void:
-	if accept_skip_button == null or game == null:
-		return
 	var active := game.current_player == 0 and game.pending_jump_rank != 0 and game.is_game_over() == 0
 	if not active:
 		_jump_state_active = false
@@ -413,8 +399,7 @@ func _check_jump_state() -> void:
 		_jump_waiting_for_input = false
 		_jump_pause_active = false
 		accept_skip_button.visible = false
-		if jump_notice_panel != null:
-			jump_notice_panel.visible = false
+		jump_notice_panel.visible = false
 		return
 	if _jump_state_active:
 		return
@@ -425,18 +410,17 @@ func _check_jump_state() -> void:
 func _start_jump_flow() -> void:
 	_jump_flow_token += 1
 	var token := _jump_flow_token
-	var opponent_declared_jump := game.declared[1]
+	var opponent_declared_jump := game.has_declared(1)
 
 	# A declared J/K never resolves instantly: hold the skip for two seconds so
 	# the banner and the counter prompt are readable before anything can end.
 	if opponent_declared_jump:
 		_jump_pause_active = true
 		accept_skip_button.visible = false
-		if jump_notice_panel != null:
-			jump_notice_panel.visible = true
+		jump_notice_panel.visible = true
 		_update_turn_label()
 		await get_tree().create_timer(2.0).timeout
-		if token != _jump_flow_token or not is_instance_valid(self):
+		if token != _jump_flow_token:
 			return
 		_jump_pause_active = false
 
@@ -448,11 +432,10 @@ func _start_jump_flow() -> void:
 		# Counter held: give the player three seconds to tap J/K or Accept skip.
 		_jump_waiting_for_input = true
 		accept_skip_button.visible = true
-		if jump_notice_panel != null:
-			jump_notice_panel.visible = true
+		jump_notice_panel.visible = true
 		_update_turn_label()
 		await get_tree().create_timer(3.0).timeout
-		if token != _jump_flow_token or not is_instance_valid(self):
+		if token != _jump_flow_token:
 			return
 		if _jump_waiting_for_input and game.current_player == 0 and game.pending_jump_rank != 0 and game.is_game_over() == 0:
 			_do_accept_skip()
@@ -464,8 +447,7 @@ func _cancel_jump_flow() -> void:
 	_jump_flow_token += 1
 	_jump_waiting_for_input = false
 	_jump_pause_active = false
-	if jump_notice_panel != null:
-		jump_notice_panel.visible = false
+	jump_notice_panel.visible = false
 
 
 func _do_accept_skip() -> void:
@@ -493,8 +475,6 @@ func _on_accept_skip_clicked() -> void:
 	_do_accept_skip()
 
 func _update_suit_indicator() -> void:
-	if suit_indicator_label == null or game == null:
-		return
 	var s: int = game.current_suit
 	suit_indicator_label.text = "Suit:\n%s %s" % [SUIT_SYMBOLS[s], SUIT_NAMES[s]]
 	if s == 0 or s == 1:
@@ -525,7 +505,7 @@ func _input(event: InputEvent) -> void:
 	var click_pos: Vector2 = get_canvas_transform().affine_inverse() * event.position
 
 	# While the suit picker is showing, handle its buttons and ignore clicks on cards and draw pile
-	if suit_picker_overlay != null and suit_picker_overlay.visible:
+	if suit_picker_overlay.visible:
 		for s in 4:
 			var btn := suit_buttons[s]
 			if btn.get_global_rect().has_point(click_pos):
@@ -533,28 +513,25 @@ func _input(event: InputEvent) -> void:
 				return
 		return
 
-	if accept_skip_button != null and accept_skip_button.visible and accept_skip_button.get_global_rect().has_point(click_pos):
+	if accept_skip_button.visible and accept_skip_button.get_global_rect().has_point(click_pos):
 		_on_accept_skip_clicked()
 		return
 
-	if niko_kadi_button != null and niko_kadi_button.visible and niko_kadi_button.get_global_rect().has_point(click_pos):
+	if niko_kadi_button.visible and niko_kadi_button.get_global_rect().has_point(click_pos):
 		_on_niko_kadi_toggled()
 		return
 
 	for i in range(my_hand_views.size() - 1, -1, -1):
 		var cv := my_hand_views[i]
-		if not is_instance_valid(cv):
-			continue
 		var rect := Rect2(cv.position - CARD_SIZE / 2.0, CARD_SIZE)
 		if rect.has_point(click_pos):
 			_on_card_clicked(cv.card)
 			return
 
-	if draw_pile_view != null and is_instance_valid(draw_pile_view):
-		var draw_rect := Rect2(draw_pile_view.position - CARD_SIZE / 2.0, CARD_SIZE)
-		if draw_rect.has_point(click_pos):
-			_on_draw_pile_clicked()
-			return
+	var draw_rect := Rect2(draw_pile_view.position - CARD_SIZE / 2.0, CARD_SIZE)
+	if draw_rect.has_point(click_pos):
+		_on_draw_pile_clicked()
+		return
 
 func _show_deal() -> void:
 	_clear_table()
@@ -564,15 +541,14 @@ func _show_deal() -> void:
 	# Opponent's hand face-down along the top with 40px margin below top edge.
 	_place_hand(game.hands[1], false, MARGIN + CARD_SIZE.y / 2.0)
 	# Top discard card face-up in the middle.
-	if not game.discard_pile.is_empty():
-		_add_card_view(
-			game.top_card(),
-			true,
-			Vector2(
-				SCREEN_SIZE.x / 2.0 + CARD_SIZE.x / 2.0 + 12.0,
-				SCREEN_SIZE.y / 2.0,
-			),
-		)
+	_add_card_view(
+		game.top_card(),
+		true,
+		Vector2(
+			SCREEN_SIZE.x / 2.0 + CARD_SIZE.x / 2.0 + 12.0,
+			SCREEN_SIZE.y / 2.0,
+		),
+	)
 	# Face-down draw pile beside the discard card.
 	draw_pile_view = _add_card_view(
 		null,
@@ -591,7 +567,7 @@ func _clear_table() -> void:
 	draw_pile_view = null
 
 func _update_turn_label() -> void:
-	if game == null or game.is_game_over() != 0:
+	if game.is_game_over() != 0:
 		return
 	if game.current_player == 0:
 		if game.pending_penalty > 0:
@@ -669,7 +645,7 @@ func _start_answer_countdown() -> void:
 	if not game.has_legal_move(0):
 		turn_label.text = "No answer: pick up"
 		await get_tree().create_timer(1.0).timeout
-		if _answer_timer_token != token or not is_instance_valid(self):
+		if _answer_timer_token != token:
 			return
 		if game.awaiting_answer and game.current_player == 0 and game.is_game_over() == 0:
 			game.pick_up(0)
@@ -684,12 +660,12 @@ func _start_answer_countdown() -> void:
 		return
 		
 	for remaining in [3, 2, 1]:
-		if _answer_timer_token != token or not is_instance_valid(self):
+		if _answer_timer_token != token:
 			return
 		turn_label.text = "Drop an answer: %d" % remaining
 		await get_tree().create_timer(1.0).timeout
 		
-	if _answer_timer_token != token or not is_instance_valid(self):
+	if _answer_timer_token != token:
 		return
 		
 	if game.awaiting_answer and game.current_player == 0 and game.is_game_over() == 0:
@@ -765,7 +741,7 @@ func _shake_card(card: Card) -> void:
 			break
 
 func _check_game_over() -> void:
-	if game == null or _game_over_shown:
+	if _game_over_shown:
 		return
 	var result := game.is_game_over()
 	if result == 0:
@@ -780,8 +756,6 @@ func _check_game_over() -> void:
 
 	# Never flash the result instantly: let the final card sit for ~1.5 seconds.
 	await get_tree().create_timer(1.5).timeout
-	if not is_instance_valid(self):
-		return
 	game_over_label.text = "You win!" if result == 1 else "You lose!"
 	game_over_label.visible = true
 	_update_declaration_banner()

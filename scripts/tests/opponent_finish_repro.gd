@@ -8,6 +8,11 @@ const SUITS := ["H", "D", "C", "S"]
 
 var _failed := false
 
+
+func _bot_step() -> void:
+	pass
+
+
 class TracedGame extends GameState:
 	var trace: Array[String] = []
 	var ended_by: String = ""
@@ -38,7 +43,7 @@ class TracedGame extends GameState:
 			parts.append(str(c))
 		return "[" + ", ".join(parts) + "]"
 
-	func play_card(player: int, card: Card, declare: bool = false) -> bool:
+	func play_card(player: int, card: Card, declare: bool) -> bool:
 		var before := hands[player].size()
 		var ok := super.play_card(player, card, declare)
 		if ok:
@@ -124,7 +129,7 @@ func _scenario_normal_route() -> bool:
 		game.hand_text(1), str(game.declared[1]), str(game.unlocked[1])
 	])
 	var bot := SimpleBot.new()
-	await bot.take_turn(game, self)
+	await bot.take_turn(game, self, _bot_step)
 
 	game.trace.append("PLAYER ACTION: pick up 1 card (gives opponent a full turn)")
 	game.pick_up(0)
@@ -132,7 +137,7 @@ func _scenario_normal_route() -> bool:
 	game.trace.append("BOT TURN START hand=%s declared[1]=%s unlocked[1]=%s" % [
 		game.hand_text(1), str(game.declared[1]), str(game.unlocked[1])
 	])
-	await bot.take_turn(game, self)
+	await bot.take_turn(game, self, _bot_step)
 
 	_report(game, "Scenario 1: normal finishing card")
 	if game.winner != 2:
@@ -155,7 +160,7 @@ func _scenario_jump_route() -> bool:
 		game.hand_text(1), str(game.declared[1]), str(game.unlocked[1])
 	])
 	var bot := SimpleBot.new()
-	await bot.take_turn(game, self)
+	await bot.take_turn(game, self, _bot_step)
 
 	game.trace.append("JUMP STATE: pending_jump_rank=%d current_player=%d declared[1]=%s unlocked[1]=%s" % [
 		game.pending_jump_rank, game.current_player, str(game.declared[1]), str(game.unlocked[1])
@@ -168,7 +173,7 @@ func _scenario_jump_route() -> bool:
 	game.trace.append("BOT TURN START hand=%s declared[1]=%s unlocked[1]=%s" % [
 		game.hand_text(1), str(game.declared[1]), str(game.unlocked[1])
 	])
-	await bot.take_turn(game, self)
+	await bot.take_turn(game, self, _bot_step)
 
 	_report(game, "Scenario 2: J/K jump declaration")
 	if game.winner != 2:
@@ -190,7 +195,7 @@ func _scenario_random_game() -> bool:
 		while game.is_game_over() == 0 and steps < 200:
 			steps += 1
 			if game.current_player == 1:
-				await bot.take_turn(game, self)
+				await bot.take_turn(game, self, _bot_step)
 				continue
 
 			# A simple human policy: counter/accept jumps, choose a suit,

@@ -1,7 +1,8 @@
 class_name SimpleBot
 extends RefCounted
 
-func take_turn(game: GameState, tree: SceneTree, on_step: Callable = Callable()) -> void:
+func take_turn(game: GameState, tree: SceneTree, on_step: Callable) -> void:
+	assert(on_step.is_valid(), "take_turn requires a step callback")
 	while game.current_player == 1 and game.is_game_over() == 0:
 		await tree.create_timer(1.0).timeout
 		
@@ -40,5 +41,4 @@ func take_turn(game: GameState, tree: SceneTree, on_step: Callable = Callable())
 			if not played:
 				game.pick_up(1)
 		
-		if on_step.is_valid():
-			on_step.call()
+		on_step.call()

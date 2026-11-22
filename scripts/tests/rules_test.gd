@@ -41,14 +41,14 @@ func test_penalty_stacking_and_pickup() -> bool:
 	game.hands[0] = [c2, Card.new(9, 1)]
 	game.hands[1] = [c3, Card.new(9, 2)]
 	
-	if not game.play_card(0, c2):
+	if not game.play_card(0, c2, false):
 		print("FAIL: test_penalty_stacking_and_pickup (p0 play 2)")
 		return false
 	if game.pending_penalty != 2 or game.current_player != 1:
 		print("FAIL: test_penalty_stacking_and_pickup (penalty after 2)")
 		return false
 		
-	if not game.play_card(1, c3):
+	if not game.play_card(1, c3, false):
 		print("FAIL: test_penalty_stacking_and_pickup (p1 play 3)")
 		return false
 	if game.pending_penalty != 5 or game.current_player != 0:
@@ -76,7 +76,7 @@ func test_ace_blocks_stack() -> bool:
 	game.hands[0] = [c2, Card.new(9, 1)]
 	game.hands[1] = [ace, Card.new(7, 1)]
 	
-	game.play_card(0, c2)
+	game.play_card(0, c2, false)
 	if game.pending_penalty != 2:
 		print("FAIL: test_ace_blocks_stack (p0 play 2)")
 		return false
@@ -84,7 +84,7 @@ func test_ace_blocks_stack() -> bool:
 	if not game.can_play(ace):
 		print("FAIL: test_ace_blocks_stack (can_play ace)")
 		return false
-	if not game.play_card(1, ace):
+	if not game.play_card(1, ace, false):
 		print("FAIL: test_ace_blocks_stack (play ace)")
 		return false
 	# With the new rule: Ace on penalty clears penalty and passes turn directly without suit choice
@@ -107,7 +107,7 @@ func test_jump_counter_and_accept() -> bool:
 	game.hands[0] = [j0, Card.new(4, 0)]
 	game.hands[1] = [j1, Card.new(4, 1)]
 	
-	if not game.play_card(0, j0):
+	if not game.play_card(0, j0, false):
 		print("FAIL: test_jump_counter_and_accept (p0 play J)")
 		return false
 	if game.pending_jump_rank != 11 or game.pending_jump_by != 0 or game.current_player != 1:
@@ -117,7 +117,7 @@ func test_jump_counter_and_accept() -> bool:
 	if not game.can_play(j1):
 		print("FAIL: test_jump_counter_and_accept (p1 can_play J)")
 		return false
-	if not game.play_card(1, j1):
+	if not game.play_card(1, j1, false):
 		print("FAIL: test_jump_counter_and_accept (p1 play J)")
 		return false
 	if game.pending_jump_rank != 11 or game.pending_jump_by != 1 or game.current_player != 0:
@@ -146,7 +146,7 @@ func test_queen_answered_same_suit() -> bool:
 	var other_suit := Card.new(5, 2)
 	game.hands[0] = [q, ans, other_suit]
 	
-	if not game.play_card(0, q):
+	if not game.play_card(0, q, false):
 		print("FAIL: test_queen_answered_same_suit (play Q)")
 		return false
 	if not game.awaiting_answer or game.question_suit != 1 or game.current_player != 0:
@@ -160,7 +160,7 @@ func test_queen_answered_same_suit() -> bool:
 		print("FAIL: test_queen_answered_same_suit (matching suit should be legal)")
 		return false
 		
-	if not game.play_card(0, ans):
+	if not game.play_card(0, ans, false):
 		print("FAIL: test_queen_answered_same_suit (play answer)")
 		return false
 	if game.awaiting_answer or game.current_player != 1:
@@ -180,7 +180,7 @@ func test_queen_then_pickup() -> bool:
 	var q := Card.new(12, 1)
 	game.hands[0] = [q, Card.new(9, 2)]
 	
-	game.play_card(0, q)
+	game.play_card(0, q, false)
 	if not game.awaiting_answer:
 		print("FAIL: test_queen_then_pickup (awaiting_answer)")
 		return false
@@ -227,7 +227,7 @@ func test_declaration_lock_and_win() -> bool:
 	if not game.can_play(c2):
 		print("FAIL: test_declaration_lock_and_win (c2 can_play after unlock)")
 		return false
-	if not game.play_card(0, c2):
+	if not game.play_card(0, c2, false):
 		print("FAIL: test_declaration_lock_and_win (play c2)")
 		return false
 	if game.is_game_over() != 1:
@@ -297,7 +297,7 @@ func test_ace_on_pending_two() -> bool:
 	game.hands[0] = [c2, Card.new(9, 1)]
 	game.hands[1] = [ace, Card.new(7, 1)]
 	
-	game.play_card(0, c2)
+	game.play_card(0, c2, false)
 	if game.pending_penalty != 2 or game.current_player != 1:
 		print("FAIL: test_ace_on_pending_two (pending penalty setup)")
 		return false
@@ -305,7 +305,7 @@ func test_ace_on_pending_two() -> bool:
 	if not game.can_play(ace):
 		print("FAIL: test_ace_on_pending_two (can_play ace)")
 		return false
-	if not game.play_card(1, ace):
+	if not game.play_card(1, ace, false):
 		print("FAIL: test_ace_on_pending_two (play_card ace)")
 		return false
 		
@@ -333,7 +333,7 @@ func test_ace_on_no_penalty() -> bool:
 	var ace := Card.new(14, 0)
 	game.hands[0] = [ace, Card.new(9, 1)]
 	
-	if not game.play_card(0, ace):
+	if not game.play_card(0, ace, false):
 		print("FAIL: test_ace_on_no_penalty (play ace)")
 		return false
 	if not game.awaiting_suit_choice or game.current_player != 0:
@@ -355,11 +355,11 @@ func test_lone_ace_on_pending_penalty() -> bool:
 	game.hands[0] = [c2, Card.new(9, 1)]
 	game.hands[1] = [ace] # lone Ace
 	
-	game.play_card(0, c2) # pending_penalty = 2, player = 1
+	game.play_card(0, c2, false) # pending_penalty = 2, player = 1
 	if not game.can_play(ace):
 		print("FAIL: test_lone_ace_on_pending_penalty (can_play lone ace)")
 		return false
-	if not game.play_card(1, ace):
+	if not game.play_card(1, ace, false):
 		print("FAIL: test_lone_ace_on_pending_penalty (play lone ace)")
 		return false
 		
@@ -410,7 +410,7 @@ func test_jump_finish_with_declare() -> bool:
 	if not game.can_play(c4):
 		print("FAIL: test_jump_finish_with_declare (c4 should be legal)")
 		return false
-	if not game.play_card(0, c4):
+	if not game.play_card(0, c4, false):
 		print("FAIL: test_jump_finish_with_declare (play c4)")
 		return false
 	if game.is_game_over() != 1:
@@ -498,7 +498,7 @@ func test_lone_ace_last_card_no_win() -> bool:
 	if not game.can_play(ace):
 		print("FAIL: test_lone_ace_last_card_no_win (can_play lone ace)")
 		return false
-	if not game.play_card(0, ace):
+	if not game.play_card(0, ace, false):
 		print("FAIL: test_lone_ace_last_card_no_win (play lone ace)")
 		return false
 		

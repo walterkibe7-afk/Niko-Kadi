@@ -13,26 +13,22 @@ func _ready() -> void:
 func set_card(p_card, p_face_up: bool) -> void:
 	card = p_card
 	face_up = p_face_up
-	if _sprite != null:
-		refresh()
+	assert(_sprite != null, "set_card called before CardView is in the tree")
+	refresh()
 
 func refresh() -> void:
-	if _sprite == null:
-		return
+	assert(_sprite != null, "refresh called before CardView is in the tree")
 
-	if face_up and card != null:
-		_sprite.texture = load(CardArt.card_path(card))
-	elif not face_up:
-		_sprite.texture = load(CardArt.back_path())
+	if face_up:
+		assert(card != null, "face_up CardView has no card")
+		var tex := load(CardArt.card_path(card))
+		assert(tex != null, "Failed to load card texture: %s" % CardArt.card_path(card))
+		_sprite.texture = tex
 	else:
-		_sprite.texture = null
-		_sprite.visible = false
-		return
+		var tex := load(CardArt.back_path())
+		assert(tex != null, "Failed to load card back texture: %s" % CardArt.back_path())
+		_sprite.texture = tex
 
-	if _sprite.texture != null:
-		_sprite.visible = true
-		var texture_size := Vector2(_sprite.texture.get_width(), _sprite.texture.get_height())
-		if texture_size.x > 0 and texture_size.y > 0:
-			_sprite.scale = card_size / texture_size
-	else:
-		_sprite.visible = false
+	var texture_size := Vector2(_sprite.texture.get_width(), _sprite.texture.get_height())
+	_sprite.scale = card_size / texture_size
+	_sprite.visible = true
