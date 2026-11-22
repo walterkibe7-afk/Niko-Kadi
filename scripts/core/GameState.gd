@@ -48,14 +48,16 @@ func top_card() -> Card:
 func can_play(card: Card) -> bool:
 	# Your last card is locked until you have declared AND the opponent
 	# has had a full turn. It must also be a plain card (4-10).
-	if hands[current_player].size() == 1:
+	if hands[current_player].size() == 1 and card.rank != 14:
 		if not (card.is_plain() and declared[current_player] and unlocked[current_player]):
 			return false
 
 	if pending_jump_rank != 0:
 		return card.rank == pending_jump_rank  # J answers J, K answers K
+	if card.rank == 14:
+		return true  # an Ace goes on anything, and cancels a 2/3 stack
 	if pending_penalty > 0:
-		return card.rank == 2 or card.rank == 3 or card.rank == 14  # stack, or Ace blocks
+		return card.rank == 2 or card.rank == 3
 	if awaiting_answer:
 		return card.suit == question_suit
 	return card.suit == current_suit or card.rank == top_card().rank
@@ -89,8 +91,12 @@ func play_card(player: int, card: Card, declare: bool = false) -> bool:
 			pending_penalty += card.rank
 			_end_turn(player)
 		14:
-			pending_penalty = 0  # the Ace blocks the whole stack
-			awaiting_suit_choice = true
+			if pending_penalty > 0:
+				pending_penalty = 0  # the Ace only blocks: no suit choice
+				_finish_empty_hand_without_win(player)
+				_end_turn(player)
+			else:
+				awaiting_suit_choice = true
 		11, 13:
 			pending_jump_rank = card.rank
 			pending_jump_by = player
@@ -103,11 +109,29 @@ func play_card(player: int, card: Card, declare: bool = false) -> bool:
 	return true
 
 
+# An Ace (or any special card) can be a player's last card but never wins:
+# they pick up 1 card instead.
+func _finish_empty_hand_without_win(player: int) -> void:
+	if hands[player].is_empty():
+		var card := _draw_card()
+		if card != null:
+			hands[player].append(card)
+		declared[player] = false
+		unlocked[player] = false
+
+
 func choose_suit(player: int, suit: int) -> bool:
 	if player != current_player or not awaiting_suit_choice:
 		return false
 	current_suit = suit
 	awaiting_suit_choice = false
+	# An Ace played as your last card never wins: pick up 1 card instead
+	if hands[player].is_empty():
+		var card := _draw_card()
+		if card != null:
+			hands[player].append(card)
+		declared[player] = false
+		unlocked[player] = false
 	_end_turn(player)
 	return true
 
@@ -119,6 +143,9 @@ func accept_jump(player: int) -> bool:
 	var jumper := pending_jump_by
 	pending_jump_rank = 0
 	pending_jump_by = -1
+	# The target had their chance to counter, so a declared jumper may now finish
+	if declared[jumper]:
+		unlocked[jumper] = true
 	current_player = jumper
 	return true
 
@@ -167,6 +194,8 @@ func _end_turn(player: int) -> void:
 
 func is_game_over() -> int:
 	# 0 = not over, 1 = you win, 2 = opponent wins
+	if awaiting_suit_choice:
+		return 0
 	if hands[0].is_empty():
 		return 1
 	if hands[1].is_empty():

@@ -14,15 +14,19 @@ var game: GameState
 var turn_label: Label
 var game_over_label: Label
 var notice_banner: Label
+var declaration_banner: Label
 var suit_indicator_panel: Panel
 var suit_indicator_label: Label
 var suit_picker_overlay: ColorRect
 var suit_buttons: Array[Button] = []
 var niko_kadi_button: Button
+var niko_kadi_hint: Label
 var is_niko_kadi_declared: bool = false
 var accept_skip_button: Button
 var _is_auto_skipping: bool = false
 var _last_seen_top_card: Card = null
+var _opp_had_penalty: bool = false
+var _answer_timer_token: int = 0
 
 var input_enabled: bool = true
 var my_hand_views: Array[CardView] = []
@@ -66,11 +70,24 @@ func _ready() -> void:
 	notice_banner.z_index = 50
 	add_child(notice_banner)
 	
+	declaration_banner = Label.new()
+	declaration_banner.text = ""
+	declaration_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	declaration_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	declaration_banner.size = Vector2(720, 32)
+	declaration_banner.position = Vector2(0, 8)
+	declaration_banner.add_theme_font_size_override("font_size", 22)
+	declaration_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	declaration_banner.visible = false
+	declaration_banner.z_index = 60
+	add_child(declaration_banner)
+	
 	_create_suit_indicator()
 	_create_suit_picker()
 	_create_niko_kadi_button()
 	_create_accept_skip_button()
 	
+	_last_seen_top_card = game.top_card()
 	_show_deal()
 	_update_turn_label()
 	_update_suit_indicator()
@@ -109,6 +126,7 @@ func _create_suit_picker() -> void:
 	suit_picker_overlay.color = Color(0, 0, 0, 0.7)
 	suit_picker_overlay.visible = false
 	suit_picker_overlay.z_index = 100
+	suit_picker_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(suit_picker_overlay)
 	
 	var title := Label.new()
@@ -135,6 +153,7 @@ func _create_suit_picker() -> void:
 		btn.size = btn_size
 		btn.position = positions[s]
 		btn.add_theme_font_size_override("font_size", 28)
+		btn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		
 		var style_normal := StyleBoxFlat.new()
 		style_normal.bg_color = Color(0.96, 0.96, 0.96)
@@ -146,38 +165,37 @@ func _create_suit_picker() -> void:
 		style_normal.shadow_size = 4
 		btn.add_theme_stylebox_override("normal", style_normal)
 		
-		var style_hover := style_normal.duplicate() as StyleBoxFlat
-		style_hover.bg_color = Color(1.0, 1.0, 1.0)
-		btn.add_theme_stylebox_override("hover", style_hover)
-		
-		var style_pressed := style_normal.duplicate() as StyleBoxFlat
-		style_pressed.bg_color = Color(0.88, 0.88, 0.88)
-		btn.add_theme_stylebox_override("pressed", style_pressed)
-		
 		if s == 0 or s == 1:
 			btn.add_theme_color_override("font_color", Color(0.85, 0.1, 0.1))
-			btn.add_theme_color_override("font_hover_color", Color(0.75, 0.05, 0.05))
-			btn.add_theme_color_override("font_pressed_color", Color(0.6, 0.0, 0.0))
 		else:
 			btn.add_theme_color_override("font_color", Color(0.12, 0.12, 0.12))
-			btn.add_theme_color_override("font_hover_color", Color(0.25, 0.25, 0.25))
-			btn.add_theme_color_override("font_pressed_color", Color(0.0, 0.0, 0.0))
 		
-		btn.pressed.connect(_on_suit_chosen.bind(s))
 		suit_picker_overlay.add_child(btn)
 		suit_buttons.append(btn)
 
 func _create_niko_kadi_button() -> void:
 	niko_kadi_button = Button.new()
-	niko_kadi_button.text = "Niko Kadi"
+	niko_kadi_button.text = "Niko Kadi: OFF"
 	niko_kadi_button.size = Vector2(170, 42)
-	niko_kadi_button.position = Vector2((SCREEN_SIZE.x - 170.0) / 2.0, 1005.0)
+	niko_kadi_button.position = Vector2(40.0, 1005.0)
 	niko_kadi_button.add_theme_font_size_override("font_size", 20)
 	niko_kadi_button.visible = false
 	niko_kadi_button.z_index = 20
-	niko_kadi_button.pressed.connect(_on_niko_kadi_toggled)
+	niko_kadi_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_update_niko_kadi_button_style()
 	add_child(niko_kadi_button)
+	
+	niko_kadi_hint = Label.new()
+	niko_kadi_hint.text = "Switch ON, then play a card to declare."
+	niko_kadi_hint.size = Vector2(460, 42)
+	niko_kadi_hint.position = Vector2(225.0, 1005.0)
+	niko_kadi_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	niko_kadi_hint.add_theme_font_size_override("font_size", 18)
+	niko_kadi_hint.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	niko_kadi_hint.visible = false
+	niko_kadi_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	niko_kadi_hint.z_index = 20
+	add_child(niko_kadi_hint)
 
 func _create_accept_skip_button() -> void:
 	accept_skip_button = Button.new()
@@ -187,7 +205,7 @@ func _create_accept_skip_button() -> void:
 	accept_skip_button.add_theme_font_size_override("font_size", 20)
 	accept_skip_button.visible = false
 	accept_skip_button.z_index = 20
-	accept_skip_button.pressed.connect(_on_accept_skip_clicked)
+	accept_skip_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.92, 0.92, 0.92)
@@ -199,10 +217,6 @@ func _create_accept_skip_button() -> void:
 	style.shadow_color = Color(0, 0, 0, 0.25)
 	accept_skip_button.add_theme_stylebox_override("normal", style)
 	accept_skip_button.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
-	
-	var style_hover := style.duplicate() as StyleBoxFlat
-	style_hover.bg_color = Color(1.0, 1.0, 1.0)
-	accept_skip_button.add_theme_stylebox_override("hover", style_hover)
 	add_child(accept_skip_button)
 
 func _update_niko_kadi_button_style() -> void:
@@ -221,30 +235,49 @@ func _update_niko_kadi_button_style() -> void:
 		style.bg_color = Color(0.2, 0.75, 0.25)
 		niko_kadi_button.add_theme_color_override("font_color", Color.WHITE)
 	else:
-		niko_kadi_button.text = "Niko Kadi"
+		niko_kadi_button.text = "Niko Kadi: OFF"
 		style.bg_color = Color(0.92, 0.92, 0.92)
 		niko_kadi_button.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 		
 	niko_kadi_button.add_theme_stylebox_override("normal", style)
-	var style_hover := style.duplicate() as StyleBoxFlat
-	style_hover.bg_color = style.bg_color.lightened(0.1)
-	niko_kadi_button.add_theme_stylebox_override("hover", style_hover)
+
+func _update_declaration_banner() -> void:
+	if declaration_banner == null or game == null or game.is_game_over() != 0:
+		if declaration_banner != null:
+			declaration_banner.visible = false
+		return
+	if game.declared[0]:
+		declaration_banner.text = "You declared Niko Kadi"
+		declaration_banner.add_theme_color_override("font_color", Color(0.3, 0.95, 0.3))
+		declaration_banner.visible = true
+	elif game.declared[1]:
+		declaration_banner.text = "Opponent declared Niko Kadi!"
+		declaration_banner.add_theme_color_override("font_color", Color(1.0, 0.45, 0.45))
+		declaration_banner.visible = true
+	else:
+		declaration_banner.visible = false
 
 func _update_ui_state() -> void:
 	if game == null or game.is_game_over() != 0:
 		if niko_kadi_button != null:
 			niko_kadi_button.visible = false
+		if niko_kadi_hint != null:
+			niko_kadi_hint.visible = false
 		if accept_skip_button != null:
 			accept_skip_button.visible = false
+		_update_declaration_banner()
 		return
 
 	if niko_kadi_button != null:
-		var show_niko = (game.hands[0].size() == 2 and game.current_player == 0 and not game.awaiting_suit_choice)
+		var show_niko = (game.hands[0].size() == 2 and game.current_player == 0 and game.has_legal_move(0) and not game.awaiting_suit_choice)
 		niko_kadi_button.visible = show_niko
+		if niko_kadi_hint != null:
+			niko_kadi_hint.visible = show_niko
 		if not show_niko and is_niko_kadi_declared:
 			is_niko_kadi_declared = false
 			_update_niko_kadi_button_style()
 
+	_update_declaration_banner()
 	_check_jump_state()
 
 func _check_jump_state() -> void:
@@ -403,10 +436,11 @@ func _update_turn_label() -> void:
 			else:
 				turn_label.text = "You were skipped"
 		elif game.awaiting_answer:
-			var s = game.question_suit
-			turn_label.text = "Answer with a %s %s card, or pick up" % [SUIT_SYMBOLS[s], SUIT_NAMES[s]]
+			pass
 		elif game.awaiting_suit_choice:
 			turn_label.text = "Choose a suit"
+		elif not game.has_legal_move(0):
+			turn_label.text = "No playable card: tap the draw pile"
 		else:
 			turn_label.text = "Your turn"
 	else:
@@ -414,6 +448,7 @@ func _update_turn_label() -> void:
 
 func _maybe_start_bot() -> void:
 	if game.current_player == 1 and input_enabled and game.is_game_over() == 0:
+		_opp_had_penalty = (game.pending_penalty > 0)
 		var bot = SIMPLE_BOT.new()
 		await bot.take_turn(game, get_tree(), _on_bot_step)
 		_on_bot_step()
@@ -422,8 +457,12 @@ func _maybe_start_bot() -> void:
 
 func _on_bot_step() -> void:
 	var current_top = game.top_card()
-	if current_top != _last_seen_top_card and current_top.rank == 14 and game.current_player == 0:
-		_show_opponent_notice()
+	if current_top != _last_seen_top_card and current_top.rank == 14:
+		if _opp_had_penalty:
+			_show_notice("Opponent blocked with an Ace")
+		elif game.current_player == 0:
+			_show_opponent_notice()
+	_opp_had_penalty = (game.pending_penalty > 0)
 	_last_seen_top_card = current_top
 	
 	_show_deal()
@@ -431,6 +470,15 @@ func _on_bot_step() -> void:
 	_update_suit_indicator()
 	_update_ui_state()
 	_check_game_over()
+
+func _show_notice(text: String) -> void:
+	notice_banner.text = text
+	notice_banner.add_theme_color_override("font_color", Color.WHITE)
+	notice_banner.visible = true
+	var timer := get_tree().create_timer(2.0)
+	await timer.timeout
+	if notice_banner.text == text:
+		notice_banner.visible = false
 
 func _show_opponent_notice() -> void:
 	var s: int = game.current_suit
@@ -442,12 +490,43 @@ func _show_opponent_notice() -> void:
 	notice_banner.visible = true
 	var timer := get_tree().create_timer(2.0)
 	await timer.timeout
-	notice_banner.visible = false
+	if notice_banner.text == "Opponent chose %s" % SUIT_SYMBOLS[s]:
+		notice_banner.visible = false
 
-func _on_card_clicked(card: Card) -> bool:
-	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0 or game.awaiting_suit_choice:
-		return false
-	if game.play_card(0, card, is_niko_kadi_declared):
+func _start_answer_countdown() -> void:
+	_answer_timer_token += 1
+	var token := _answer_timer_token
+	
+	if not game.has_legal_move(0):
+		turn_label.text = "No answer: pick up"
+		await get_tree().create_timer(1.0).timeout
+		if _answer_timer_token != token or not is_instance_valid(self):
+			return
+		if game.awaiting_answer and game.current_player == 0 and game.is_game_over() == 0:
+			game.pick_up(0)
+			is_niko_kadi_declared = false
+			_update_niko_kadi_button_style()
+			_show_deal()
+			_update_turn_label()
+			_update_suit_indicator()
+			_update_ui_state()
+			_check_game_over()
+			_maybe_start_bot()
+		return
+		
+	for remaining in [3, 2, 1]:
+		if _answer_timer_token != token or not is_instance_valid(self):
+			return
+		turn_label.text = "Drop an answer: %d" % remaining
+		await get_tree().create_timer(1.0).timeout
+		
+	if _answer_timer_token != token or not is_instance_valid(self):
+		return
+		
+	if game.awaiting_answer and game.current_player == 0 and game.is_game_over() == 0:
+		turn_label.text = "Time's up: you pick up 1 card"
+		_show_notice("Time's up: you pick up 1 card")
+		game.pick_up(0)
 		is_niko_kadi_declared = false
 		_update_niko_kadi_button_style()
 		_show_deal()
@@ -455,8 +534,29 @@ func _on_card_clicked(card: Card) -> bool:
 		_update_suit_indicator()
 		_update_ui_state()
 		_check_game_over()
-		if game.awaiting_suit_choice and game.current_player == 0:
+		_maybe_start_bot()
+
+func _on_card_clicked(card: Card) -> bool:
+	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0 or game.awaiting_suit_choice:
+		return false
+	var had_penalty := game.pending_penalty > 0
+	if game.play_card(0, card, is_niko_kadi_declared):
+		_answer_timer_token += 1
+		is_niko_kadi_declared = false
+		_update_niko_kadi_button_style()
+		_show_deal()
+		_update_turn_label()
+		_update_suit_indicator()
+		_update_ui_state()
+		_check_game_over()
+		if card.rank == 14 and had_penalty:
+			_show_notice("Ace blocked the penalty")
+			if game.current_player == 1:
+				_maybe_start_bot()
+		elif game.awaiting_suit_choice and game.current_player == 0:
 			_show_suit_picker()
+		elif game.awaiting_answer and game.current_player == 0:
+			_start_answer_countdown()
 		elif game.current_player == 1:
 			_maybe_start_bot()
 		elif game.current_player == 0 and game.pending_jump_rank != 0:
@@ -470,6 +570,7 @@ func _on_card_clicked(card: Card) -> bool:
 func _on_draw_pile_clicked() -> void:
 	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0 or game.awaiting_suit_choice or game.pending_jump_rank != 0:
 		return
+	_answer_timer_token += 1
 	game.pick_up(0)
 	is_niko_kadi_declared = false
 	_update_niko_kadi_button_style()
