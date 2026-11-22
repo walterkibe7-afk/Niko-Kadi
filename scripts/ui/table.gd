@@ -11,6 +11,8 @@ var game: GameState
 var turn_label: Label
 var game_over_label: Label
 var input_enabled: bool = true
+var my_hand_views: Array[CardView] = []
+var draw_pile_view: CardView = null
 
 func _ready() -> void:
 	game = GameState.new()
@@ -22,6 +24,7 @@ func _ready() -> void:
 	turn_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	turn_label.position = Vector2(SCREEN_SIZE.x / 2.0, 60.0)
 	turn_label.add_theme_constant_override("font_size", 24)
+	turn_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(turn_label)
 	
 	game_over_label = Label.new()
@@ -32,11 +35,35 @@ func _ready() -> void:
 	game_over_label.add_theme_constant_override("font_size", 48)
 	game_over_label.modulate = Color(1, 0.2, 0.2)
 	game_over_label.visible = false
+	game_over_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(game_over_label)
 	
 	_show_deal()
 	_update_turn_label()
 	_maybe_start_bot()
+
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
+		return
+	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0:
+		return
+
+	var click_pos: Vector2 = get_canvas_transform().affine_inverse() * event.position
+
+	for i in range(my_hand_views.size() - 1, -1, -1):
+		var cv := my_hand_views[i]
+		if not is_instance_valid(cv):
+			continue
+		var rect := Rect2(cv.position - CARD_SIZE / 2.0, CARD_SIZE)
+		if rect.has_point(click_pos):
+			_on_card_clicked(cv.card)
+			return
+
+	if draw_pile_view != null and is_instance_valid(draw_pile_view):
+		var draw_rect := Rect2(draw_pile_view.position - CARD_SIZE / 2.0, CARD_SIZE)
+		if draw_rect.has_point(click_pos):
+			_on_draw_pile_clicked()
+			return
 
 func _show_deal() -> void:
 	_clear_table()
@@ -55,7 +82,7 @@ func _show_deal() -> void:
 		),
 	)
 	# Face-down draw pile beside the starter card.
-	_add_card_view(
+	draw_pile_view = _add_card_view(
 		null,
 		false,
 		Vector2(
@@ -68,6 +95,8 @@ func _clear_table() -> void:
 	for child in get_children():
 		if child is CardView:
 			child.queue_free()
+	my_hand_views.clear()
+	draw_pile_view = null
 
 func _update_turn_label() -> void:
 	if game.current_player == 0:
@@ -78,8 +107,8 @@ func _update_turn_label() -> void:
 func _maybe_start_bot() -> void:
 	if game.current_player == 1 and input_enabled:
 		var bot = SIMPLE_BOT.new()
-		bot.take_turn(game, get_tree())
-		call_deferred("_on_bot_done")
+		await bot.take_turn(game, get_tree())
+		_on_bot_done()
 
 func _on_bot_done() -> void:
 	_show_deal()
@@ -88,20 +117,22 @@ func _on_bot_done() -> void:
 	if input_enabled and game.current_player == 1:
 		_maybe_start_bot()
 
-func _on_card_clicked(card: Card) -> void:
-	if not input_enabled or game.current_player != 0:
-		return
+func _on_card_clicked(card: Card) -> bool:
+	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0:
+		return false
 	if game.play_card(0, card):
 		_show_deal()
 		_update_turn_label()
 		_check_game_over()
 		_maybe_start_bot()
+		return true
 	else:
 		# Illegal move - shake the card
 		_shake_card(card)
+		return false
 
 func _on_draw_pile_clicked() -> void:
-	if not input_enabled or game.current_player != 0:
+	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0:
 		return
 	game.pick_up(0)
 	_show_deal()
@@ -112,13 +143,14 @@ func _on_draw_pile_clicked() -> void:
 func _shake_card(card: Card) -> void:
 	for child in get_children():
 		if child is CardView and child.card == card and child.face_up:
-			var tween = create_tween()
-			tween.set_parallel(true)
-			tween.tween_property(child, "position:x", child.position.x + 10, 0.05)
-			tween.tween_property(child, "position:x", child.position.x - 10, 0.05)
-			tween.tween_property(child, "position:x", child.position.x + 10, 0.05)
-			tween.tween_property(child, "position:x", child.position.x - 10, 0.05)
-			tween.tween_property(child, "position:x", child.position.x, 0.05)
+			var cv := child as CardView
+			var orig_x: float = cv.position.x
+			var tween := create_tween()
+			tween.tween_property(cv, "position:x", orig_x + 10.0, 0.05)
+			tween.tween_property(cv, "position:x", orig_x - 10.0, 0.05)
+			tween.tween_property(cv, "position:x", orig_x + 10.0, 0.05)
+			tween.tween_property(cv, "position:x", orig_x - 10.0, 0.05)
+			tween.tween_property(cv, "position:x", orig_x, 0.05)
 			break
 
 func _check_game_over() -> void:
@@ -139,27 +171,11 @@ func _add_card_view(p_card, p_face_up: bool, p_position: Vector2) -> CardView:
 	cv.position = p_position
 	add_child(cv)
 	cv.set_card(p_card, p_face_up)
-	
-	if p_face_up and p_card != null:
-		cv.gui_input.connect(_on_card_gui_input.bind(cv))
-	elif not p_face_up and p_card == null:
-		# Draw pile
-		cv.gui_input.connect(_on_draw_pile_gui_input.bind(cv))
-	
 	return cv
-
-func _on_card_gui_input(event: InputEvent, card_view: CardView) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_on_card_clicked(card_view.card)
-
-func _on_draw_pile_gui_input(event: InputEvent, card_view: CardView) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_on_draw_pile_clicked()
 
 # Places hand cards evenly spaced along `y`, overlapping if they don't fit.
 func _place_hand(hand, face_up: bool, y: float) -> void:
-	var count
-	count = hand.size()
+	var count: int = hand.size()
 	if count == 0:
 		return
 	var usable := SCREEN_SIZE.x - MARGIN * 2.0
@@ -168,5 +184,7 @@ func _place_hand(hand, face_up: bool, y: float) -> void:
 		spacing = clamp((usable - CARD_SIZE.x) / (count - 1), 0.0, CARD_SIZE.x)
 	var x := MARGIN
 	for card in hand:
-		_add_card_view(card, face_up, Vector2(x, y))
+		var cv := _add_card_view(card, face_up, Vector2(x, y))
+		if face_up and hand == game.hands[0]:
+			my_hand_views.append(cv)
 		x += spacing
