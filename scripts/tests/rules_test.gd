@@ -40,6 +40,14 @@ func _init() -> void:
 	all_passed = test_lone_jump_accept_then_pickup() and all_passed
 	all_passed = test_special_empty_hand_not_game_over() and all_passed
 
+	# Hand limit tests
+	all_passed = test_over_limit_by_one_loses() and all_passed
+	all_passed = test_playing_from_ten_does_not_lose() and all_passed
+	all_passed = test_penalty_takes_eight_to_eleven_loses() and all_passed
+	all_passed = test_ace_block_avoids_over_limit() and all_passed
+	all_passed = test_pickup_exactly_to_ten_no_loss() and all_passed
+	all_passed = test_opponent_over_limit_makes_me_winner() and all_passed
+
 	if all_passed:
 		print("\nALL RULE TESTS PASSED")
 	else:
@@ -921,3 +929,160 @@ func test_special_empty_hand_not_game_over() -> bool:
 	return true
 
 
+# --- Hand limit ---
+
+func _hand_with(count: int) -> Array[Card]:
+	var cards: Array[Card] = []
+	for i in count:
+		cards.append(Card.new(4 + (i % 6), i % 4))
+	return cards
+
+
+func test_over_limit_by_one_loses() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	game.hands[0] = _hand_with(10)
+	game.hands[1] = _hand_with(4)
+
+	game.pick_up(0)
+	if game.hands[0].size() != 11 or game.over_limit_player != 0:
+		print("FAIL: test_over_limit_by_one_loses (hand/over_limit_player)")
+		return false
+	if game.winner != 2 or game.is_game_over() != 2:
+		print("FAIL: test_over_limit_by_one_loses (opponent should win)")
+		return false
+
+	print("PASS: player at 10 cards picks up 1 and loses")
+	return true
+
+
+func test_playing_from_ten_does_not_lose() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	game.hands[0] = _hand_with(10)
+	game.hands[0][0] = Card.new(5, 3)
+	game.hands[1] = _hand_with(4)
+
+	if not game.play_card(0, game.hands[0][0], false):
+		print("FAIL: test_playing_from_ten_does_not_lose (play from 10)")
+		return false
+	if game.hands[0].size() != 9 or game.over_limit_player != -1 or game.winner != 0 or game.is_game_over() != 0:
+		print("FAIL: test_playing_from_ten_does_not_lose (10 -> 9 must be safe)")
+		return false
+
+	var g2 := GameState.new()
+	g2.start_game()
+	g2.discard_pile = [Card.new(5, 3)]
+	g2.current_suit = 3
+	g2.current_player = 0
+	g2.hands[0] = _hand_with(11)
+	g2.hands[0][0] = Card.new(5, 3)
+	g2.hands[1] = _hand_with(4)
+
+	if not g2.play_card(0, g2.hands[0][0], false):
+		print("FAIL: test_playing_from_ten_does_not_lose (play from 11)")
+		return false
+	if g2.hands[0].size() != 10 or g2.over_limit_player != -1 or g2.winner != 0 or g2.is_game_over() != 0:
+		print("FAIL: test_playing_from_ten_does_not_lose (11 -> 10 must be safe)")
+		return false
+
+	print("PASS: a player at 10 (or 11) who plays a card and stays at 9 or 10 does not lose")
+	return true
+
+
+func test_penalty_takes_eight_to_eleven_loses() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	game.pending_penalty = 3
+	game.hands[0] = _hand_with(8)
+	game.hands[1] = _hand_with(4)
+
+	game.pick_up(0)
+	if game.hands[0].size() != 11 or game.over_limit_player != 0:
+		print("FAIL: test_penalty_takes_eight_to_eleven_loses (hand/over_limit_player)")
+		return false
+	if game.winner != 2 or game.is_game_over() != 2:
+		print("FAIL: test_penalty_takes_eight_to_eleven_loses (opponent should win)")
+		return false
+
+	print("PASS: penalty stack taking a player from 8 to 11 loses")
+	return true
+
+
+func test_ace_block_avoids_over_limit() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 1
+	game.pending_penalty = 3
+	game.hands[0] = _hand_with(8)
+	var ace := Card.new(14, 0)
+	game.hands[1] = [ace]
+
+	if not game.can_play(ace):
+		print("FAIL: test_ace_block_avoids_over_limit (Ace not playable on stack)")
+		return false
+	if not game.play_card(1, ace, false):
+		print("FAIL: test_ace_block_avoids_over_limit (play Ace)")
+		return false
+	if game.pending_penalty != 0 or game.hands[0].size() != 8:
+		print("FAIL: test_ace_block_avoids_over_limit (stack not cleared or hand changed)")
+		return false
+	if game.over_limit_player != -1 or game.winner != 0 or game.is_game_over() != 0:
+		print("FAIL: test_ace_block_avoids_over_limit (Ace block must avoid the loss)")
+		return false
+
+	print("PASS: Ace block at 8 with a pending stack of 3 avoids the hand-limit loss")
+	return true
+
+
+func test_pickup_exactly_to_ten_no_loss() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	game.hands[0] = _hand_with(9)
+	game.hands[1] = _hand_with(4)
+
+	game.pick_up(0)
+	if game.hands[0].size() != 10 or game.over_limit_player != -1:
+		print("FAIL: test_pickup_exactly_to_ten_no_loss (hand/over_limit_player)")
+		return false
+	if game.winner != 0 or game.is_game_over() != 0:
+		print("FAIL: test_pickup_exactly_to_ten_no_loss (exactly 10 must be safe)")
+		return false
+
+	print("PASS: picking up exactly to 10 does not lose")
+	return true
+
+
+func test_opponent_over_limit_makes_me_winner() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 1
+	game.hands[0] = _hand_with(4)
+	game.hands[1] = _hand_with(10)
+
+	game.pick_up(1)
+	if game.hands[1].size() != 11 or game.over_limit_player != 1:
+		print("FAIL: test_opponent_over_limit_makes_me_winner (hand/over_limit_player)")
+		return false
+	if game.winner != 1 or game.is_game_over() != 1:
+		print("FAIL: test_opponent_over_limit_makes_me_winner (player 0 should win)")
+		return false
+
+	print("PASS: opponent over the limit makes me the winner")
+	return true

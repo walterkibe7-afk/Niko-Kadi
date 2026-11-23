@@ -29,6 +29,8 @@ var suit_picker_overlay: ColorRect
 var suit_buttons: Array[Button] = []
 var niko_kadi_button: Button
 var niko_kadi_hint: Label
+var my_count_label: Label
+var opp_count_label: Label
 var suit_picker_niko_button: Button
 var locked_hint: Label
 var is_niko_kadi_declared: bool = false
@@ -106,6 +108,7 @@ func _ready() -> void:
 	notice_banner.z_index = 50
 	add_child(notice_banner)
 	
+	_create_hand_count_labels()
 	_create_declaration_banners()
 	_create_jump_notice()
 	_create_suit_indicator()
@@ -119,6 +122,36 @@ func _ready() -> void:
 	_update_suit_indicator()
 	_update_ui_state()
 	_maybe_start_bot()
+
+func _create_hand_count_labels() -> void:
+	opp_count_label = Label.new()
+	opp_count_label.size = Vector2(240, 36)
+	opp_count_label.position = Vector2(MARGIN, 214.0)
+	opp_count_label.add_theme_font_size_override("font_size", 20)
+	opp_count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	opp_count_label.z_index = 20
+	add_child(opp_count_label)
+
+	my_count_label = Label.new()
+	my_count_label.size = Vector2(240, 36)
+	my_count_label.position = Vector2(MARGIN, 1060.0)
+	my_count_label.add_theme_font_size_override("font_size", 20)
+	my_count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	my_count_label.z_index = 20
+	add_child(my_count_label)
+
+	_update_hand_count_labels()
+
+
+func _update_hand_count_labels() -> void:
+	var mine: int = game.hands[0].size()
+	var theirs: int = game.hands[1].size()
+	my_count_label.text = "You: %d/%d" % [mine, game.MAX_HAND]
+	opp_count_label.text = "Opponent: %d/%d" % [theirs, game.MAX_HAND]
+	var warning := Color(1.0, 0.4, 0.4)
+	my_count_label.add_theme_color_override("font_color", warning if mine >= game.MAX_HAND - 1 else Color.WHITE)
+	opp_count_label.add_theme_color_override("font_color", warning if theirs >= game.MAX_HAND - 1 else Color.WHITE)
+
 
 func _create_suit_indicator() -> void:
 	suit_indicator_panel = Panel.new()
@@ -697,6 +730,7 @@ func _input(event: InputEvent) -> void:
 
 func _show_deal() -> void:
 	_clear_table()
+	_update_hand_count_labels()
 	
 	# My hand face-up along the bottom with 40px margin above bottom edge.
 	_place_hand(game.hands[0], true, SCREEN_SIZE.y - MARGIN - CARD_SIZE.y / 2.0)
@@ -984,6 +1018,14 @@ func _shake_card(card: Card) -> void:
 			tween.tween_property(cv, "position:x", orig_x, 0.05)
 			break
 
+func _game_over_text(result: int) -> String:
+	if game.over_limit_player == 0:
+		return "You went over %d cards: you lose" % game.MAX_HAND
+	if game.over_limit_player == 1:
+		return "Opponent went over %d cards: you win" % game.MAX_HAND
+	return "You win!" if result == 1 else "You lose!"
+
+
 func _check_game_over() -> void:
 	if _game_over_shown:
 		return
@@ -1001,7 +1043,7 @@ func _check_game_over() -> void:
 
 	# Never flash the result instantly: let the final card sit for ~1.5 seconds.
 	await get_tree().create_timer(1.5).timeout
-	game_over_label.text = "You win!" if result == 1 else "You lose!"
+	game_over_label.text = _game_over_text(result)
 	game_over_label.visible = true
 	_update_declaration_banner()
 

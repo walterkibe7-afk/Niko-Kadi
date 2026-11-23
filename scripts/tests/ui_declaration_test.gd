@@ -19,6 +19,13 @@ func _ok(condition: bool, label: String) -> void:
 		print("FAIL: %s" % label)
 
 
+func _cards_for_ui(count: int) -> Array[Card]:
+	var cards: Array[Card] = []
+	for i in count:
+		cards.append(Card.new(4 + (i % 6), i % 4))
+	return cards
+
+
 func _fresh_game() -> GameState:
 	var g := GameState.new()
 	g.start_game()
@@ -199,6 +206,59 @@ func _run() -> void:
 	table.game.declared[0] = false
 	table._process(0.016)
 	_ok(table.locked_hint.text.begins_with("Last card locked"), "normal locked hint text restored")
+
+	# --- Hand counts with limit, and 11-card layout ---
+	table.queue_free()
+	await process_frame
+	table = scene.instantiate() as Table
+	root.add_child(table)
+	await process_frame
+	table.game = _fresh_game()
+	table.game.hands[0] = _cards_for_ui(6)
+	table.game.hands[1] = _cards_for_ui(9)
+	table._show_deal()
+	_ok(table.my_count_label.text == "You: 6/10", "my hand count shows the limit")
+	_ok(table.opp_count_label.text == "Opponent: 9/10", "opponent hand count shows the limit")
+	_ok(table.opp_count_label.get_theme_color("font_color") == Color(1.0, 0.4, 0.4),
+		"hand count tinted as warning at 9")
+	table.game.hands[0] = _cards_for_ui(11)
+	table._show_deal()
+	_ok(table.my_hand_views.size() == 11, "11-card hand still laid out")
+	_ok(table.my_count_label.get_theme_color("font_color") == Color(1.0, 0.4, 0.4),
+		"hand count tinted as warning at 10")
+
+	# --- Hand-limit game over text ---
+	table.queue_free()
+	await process_frame
+	table = scene.instantiate() as Table
+	root.add_child(table)
+	await process_frame
+	table.game = _fresh_game()
+	table.game.hands[0] = _cards_for_ui(11)
+	table.game.hands[1] = _cards_for_ui(4)
+	table.game.over_limit_player = 0
+	table.game.winner = 2
+	table._show_deal()
+	table._check_game_over()
+	await create_timer(1.6).timeout
+	_ok(table.game_over_label.text == "You went over 10 cards: you lose",
+		"player over limit shows the loss message")
+
+	table.queue_free()
+	await process_frame
+	table = scene.instantiate() as Table
+	root.add_child(table)
+	await process_frame
+	table.game = _fresh_game()
+	table.game.hands[0] = _cards_for_ui(4)
+	table.game.hands[1] = _cards_for_ui(11)
+	table.game.over_limit_player = 1
+	table.game.winner = 1
+	table._show_deal()
+	table._check_game_over()
+	await create_timer(1.6).timeout
+	_ok(table.game_over_label.text == "Opponent went over 10 cards: you win",
+		"opponent over limit shows the win message")
 
 	# --- Bot with 0 cards picks up ---
 	var bot_game := _fresh_game()

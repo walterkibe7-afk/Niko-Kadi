@@ -1,6 +1,9 @@
 class_name GameState
 extends RefCounted
 
+const MAX_HAND := 10
+var over_limit_player: int = -1  # who went over the limit, -1 = nobody
+
 signal log_added(entry: String)
 
 var log_entries: Array[String] = []
@@ -213,6 +216,10 @@ func pick_up(player: int) -> void:
 	declared[player] = false  # picking up voids a declaration
 	unlocked[player] = false
 	_log("%s picked up %d (%s) -> hand=%d" % [_who(player), count, reason, hands[player].size()])
+	if hands[player].size() > MAX_HAND:
+		over_limit_player = player
+		winner = 2 - player
+		_log("%s went over %d cards: %s wins" % [_who(player), MAX_HAND, _who(1 - player)])
 	_end_turn(player)
 
 
