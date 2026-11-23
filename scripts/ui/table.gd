@@ -10,7 +10,8 @@ const SIMPLE_BOT := preload("res://scripts/bot/simple_bot.gd")
 const SUIT_SYMBOLS := ["♥", "♦", "♣", "♠"]
 const SUIT_NAMES := ["Hearts", "Diamonds", "Clubs", "Spades"]
 
-const OPP_JUMP_NOTICE := "Opponent declared Niko Kadi! Counter with a J/K, or you're skipped"
+const OPP_JUMP_DECLARED_NOTICE := "Opponent declared Niko Kadi! Counter with a J/K, or you're skipped"
+const OPP_JUMP_NOTICE := "Counter with a %s, or you're skipped"
 const OPPONENT_BANNER_TEXT := "OPPONENT: NIKO KADI!"
 const PLAYER_BANNER_TEXT := "YOU: NIKO KADI!"
 
@@ -32,6 +33,7 @@ var suit_picker_niko_button: Button
 var locked_hint: Label
 var is_niko_kadi_declared: bool = false
 var is_suit_picker_niko: bool = false
+var _niko_offer_seen: bool = false
 var accept_skip_button: Button
 var jump_notice_panel: Panel
 var jump_notice_label: Label
@@ -54,10 +56,21 @@ var _pulse_time: float = 0.0
 var input_enabled: bool = true
 var my_hand_views: Array[CardView] = []
 var draw_pile_view: CardView = null
+var staged_chain: Array[Card] = []
+var _chain_timer_token: int = 0
+
+var log_toggle_button: Button
+var log_copy_button: Button
+var sys_log_panel: Panel
+var sys_log_text: RichTextLabel
+var _last_opp_hand_size: int = 0
 
 func _ready() -> void:
 	game = GameState.new()
+	_create_sys_log()
+	game.log_added.connect(_on_sys_log_added)
 	game.start_game()
+	_last_opp_hand_size = game.hands[1].size()
 	
 	turn_label = Label.new()
 	turn_label.text = "Your turn"
@@ -207,7 +220,7 @@ func _create_niko_kadi_button() -> void:
 	add_child(niko_kadi_button)
 	
 	niko_kadi_hint = Label.new()
-	niko_kadi_hint.text = "Switch ON, then play a card to declare."
+	niko_kadi_hint.text = "Switch ON, then play to leave 1 plain card."
 	niko_kadi_hint.size = Vector2(460, 42)
 	niko_kadi_hint.position = Vector2(225.0, 1005.0)
 	niko_kadi_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -221,7 +234,7 @@ func _create_niko_kadi_button() -> void:
 	locked_hint = Label.new()
 	locked_hint.text = "Last card locked: you didn't declare Niko Kadi. Tap the draw pile."
 	locked_hint.size = Vector2(640, 42)
-	locked_hint.position = Vector2(40.0, 1055.0)
+	locked_hint.position = Vector2(40.0, 1015.0)
 	locked_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	locked_hint.add_theme_font_size_override("font_size", 18)
 	locked_hint.add_theme_color_override("font_color", Color(1.0, 0.55, 0.55))
@@ -251,6 +264,54 @@ func _create_accept_skip_button() -> void:
 	accept_skip_button.add_theme_stylebox_override("normal", style)
 	accept_skip_button.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	add_child(accept_skip_button)
+
+func _create_sys_log() -> void:
+	log_toggle_button = Button.new()
+	log_toggle_button.text = "Sys Log"
+	log_toggle_button.size = Vector2(110, 36)
+	log_toggle_button.position = Vector2(SCREEN_SIZE.x - 130.0, 220.0)
+	log_toggle_button.add_theme_font_size_override("font_size", 16)
+	log_toggle_button.z_index = 220
+	log_toggle_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(log_toggle_button)
+
+	sys_log_panel = Panel.new()
+	sys_log_panel.size = Vector2(660, 240)
+	sys_log_panel.position = Vector2(30, 264)
+	sys_log_panel.z_index = 220
+	sys_log_panel.visible = false
+	sys_log_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.06, 0.09, 0.92)
+	style.border_color = Color(0.55, 0.75, 1.0, 0.85)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(10)
+	sys_log_panel.add_theme_stylebox_override("panel", style)
+	add_child(sys_log_panel)
+
+	log_copy_button = Button.new()
+	log_copy_button.text = "Copy"
+	log_copy_button.size = Vector2(76, 30)
+	log_copy_button.position = Vector2(574, 8)
+	log_copy_button.add_theme_font_size_override("font_size", 14)
+	log_copy_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sys_log_panel.add_child(log_copy_button)
+
+	sys_log_text = RichTextLabel.new()
+	sys_log_text.size = Vector2(640, 192)
+	sys_log_text.position = Vector2(10, 42)
+	sys_log_text.bbcode_enabled = false
+	sys_log_text.scroll_following = true
+	sys_log_text.selection_enabled = true
+	sys_log_text.add_theme_font_size_override("normal_font_size", 15)
+	sys_log_panel.add_child(sys_log_text)
+
+
+func _on_sys_log_added(entry: String) -> void:
+	if sys_log_text != null:
+		sys_log_text.append_text(entry + "\n")
+
 
 func _update_niko_kadi_button_style() -> void:
 	var style := StyleBoxFlat.new()
@@ -363,7 +424,7 @@ func _create_jump_notice() -> void:
 	jump_notice_panel.add_theme_stylebox_override("panel", style)
 
 	jump_notice_label = Label.new()
-	jump_notice_label.text = OPP_JUMP_NOTICE
+	jump_notice_label.text = ""
 	jump_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	jump_notice_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	jump_notice_label.size = jump_notice_panel.size
@@ -427,9 +488,14 @@ func _update_ui_state() -> void:
 		_update_declaration_banner()
 		return
 
-	var show_niko = (game.hands[0].size() == 2 and game.current_player == 0 and game.has_legal_move(0) and not game.awaiting_suit_choice)
+	var show_niko := _can_show_niko_kadi()
 	niko_kadi_button.visible = show_niko
 	niko_kadi_hint.visible = show_niko
+	if show_niko and not _niko_offer_seen:
+		_niko_offer_seen = true
+		_show_notice("Niko Kadi available: switch ON, then play to declare")
+	elif not show_niko:
+		_niko_offer_seen = false
 	if not show_niko and is_niko_kadi_declared:
 		is_niko_kadi_declared = false
 		_update_niko_kadi_button_style()
@@ -442,8 +508,13 @@ func _update_locked_hint() -> void:
 	var locked: bool = false
 	if game.hands[0].size() == 1 and game.is_game_over() == 0:
 		var last_card: Card = game.hands[0][0]
-		locked = not game.has_declared(0) and not game.can_play(last_card)
+		var opponent_has_cards: bool = not game.hands[1].is_empty()
+		locked = last_card.is_plain() and not (game.declared[0] and game.unlocked[0] and opponent_has_cards)
 	locked_hint.visible = locked
+	if locked and game.declared[0] and game.unlocked[0] and game.hands[1].is_empty():
+		locked_hint.text = "You can't finish while the opponent has no cards"
+	else:
+		locked_hint.text = "Last card locked: you didn't declare Niko Kadi. Tap the draw pile."
 
 
 func _check_jump_state() -> void:
@@ -466,10 +537,10 @@ func _start_jump_flow() -> void:
 	_jump_flow_token += 1
 	var token := _jump_flow_token
 	var opponent_declared_jump := game.has_declared(1)
+	var r := "J" if game.pending_jump_rank == 11 else "K"
 
-	# A declared J/K never resolves instantly: hold the skip for two seconds so
-	# the banner and the counter prompt are readable before anything can end.
 	if opponent_declared_jump:
+		jump_notice_label.text = OPP_JUMP_DECLARED_NOTICE
 		_jump_pause_active = true
 		accept_skip_button.visible = false
 		jump_notice_panel.visible = true
@@ -484,7 +555,7 @@ func _start_jump_flow() -> void:
 		return
 
 	if game.has_legal_move(0):
-		# Counter held: give the player three seconds to tap J/K or Accept skip.
+		jump_notice_label.text = OPP_JUMP_DECLARED_NOTICE if opponent_declared_jump else (OPP_JUMP_NOTICE % r)
 		_jump_waiting_for_input = true
 		accept_skip_button.visible = true
 		jump_notice_panel.visible = true
@@ -519,7 +590,7 @@ func _do_accept_skip() -> void:
 	_maybe_start_bot()
 
 func _on_niko_kadi_toggled() -> void:
-	if not input_enabled or game.current_player != 0 or game.hands[0].size() != 2:
+	if not input_enabled or not _can_show_niko_kadi():
 		return
 	is_niko_kadi_declared = not is_niko_kadi_declared
 	_update_niko_kadi_button_style()
@@ -546,7 +617,11 @@ func _update_suit_indicator() -> void:
 func _show_suit_picker() -> void:
 	is_suit_picker_niko = false
 	_update_suit_picker_niko_style()
-	suit_picker_niko_button.visible = (game.hands[0].size() == 1)
+	suit_picker_niko_button.visible = (
+		game.hands[0].size() == 1
+		and game.hands[0][0].is_plain()
+		and not game.declared[0]
+	)
 	suit_picker_overlay.visible = true
 
 func _on_suit_chosen(suit: int) -> void:
@@ -568,10 +643,25 @@ func _on_suit_chosen(suit: int) -> void:
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
 		return
-	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0:
-		return
 
 	var click_pos: Vector2 = get_canvas_transform().affine_inverse() * event.position
+
+	# The sys log works even while the bot is playing and after game over.
+	if log_toggle_button.get_global_rect().has_point(click_pos):
+		sys_log_panel.visible = not sys_log_panel.visible
+		log_toggle_button.text = "Hide Log" if sys_log_panel.visible else "Sys Log"
+		return
+
+	if sys_log_panel.visible:
+		if log_copy_button.get_global_rect().has_point(click_pos):
+			DisplayServer.clipboard_set("\n".join(PackedStringArray(game.log_entries)))
+			_show_notice("Log copied to clipboard")
+			return
+		if sys_log_panel.get_global_rect().has_point(click_pos):
+			return  # don't let clicks on the log reach cards underneath
+
+	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0:
+		return
 
 	# While the suit picker is showing, handle its buttons and ignore clicks on cards and draw pile
 	if suit_picker_overlay.visible:
@@ -642,6 +732,9 @@ func _update_turn_label() -> void:
 	if game.is_game_over() != 0:
 		return
 	if game.current_player == 0:
+		if game.hands[0].is_empty():
+			turn_label.text = "You have no cards: tap the draw pile"
+			return
 		if game.pending_penalty > 0:
 			turn_label.text = "Pick up %d, or stack a 2/3, or block with an Ace" % game.pending_penalty
 		elif game.pending_jump_rank != 0:
@@ -681,7 +774,12 @@ func _on_bot_step() -> void:
 			_show_opponent_notice()
 	_opp_had_penalty = (game.pending_penalty > 0)
 	_last_seen_top_card = current_top
-	
+
+	var drawn := game.hands[1].size() - _last_opp_hand_size
+	if drawn > 0:
+		_show_notice("Opponent picked up %d card%s" % [drawn, "" if drawn == 1 else "s"])
+	_last_opp_hand_size = game.hands[1].size()
+
 	_show_deal()
 	_update_turn_label()
 	_update_suit_indicator()
@@ -756,8 +854,78 @@ func _start_answer_countdown() -> void:
 func _on_card_clicked(card: Card) -> bool:
 	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0 or game.awaiting_suit_choice:
 		return false
+
+	# Tap an already-staged card to unstage it (if it's the first one and chain > 1, cancel the chain)
+	if card in staged_chain:
+		if card == staged_chain[0] and staged_chain.size() > 1:
+			staged_chain.clear()
+		else:
+			staged_chain.erase(card)
+		_refresh_staged_visuals()
+		if staged_chain.is_empty():
+			_chain_timer_token += 1
+			turn_label.text = "Your turn"
+		else:
+			_restart_chain_timer()
+		_update_ui_state()
+		return true
+
+	# If we are already staging a chain, only same-rank cards can be added
+	if not staged_chain.is_empty():
+		if _can_extend_chain(card):
+			staged_chain.append(card)
+			_refresh_staged_visuals()
+			_update_ui_state()
+			# If no more cards can be added (e.g. down to 1 card left), commit immediately or restart timer
+			_restart_chain_timer()
+			return true
+		elif (staged_chain[0].rank == 12 or staged_chain[0].rank == 8) and card.suit == staged_chain.back().suit:
+			# Answering a staged Q/8 with a same-suit 2/3: commit the question first.
+			# The last staged card decides question_suit in GameState.play_cards().
+			var question_cards := staged_chain.duplicate()
+			staged_chain.clear()
+			if _commit_cards(question_cards):
+				# Re-enter normally so the answer can still be staged/chained (e.g. 2♥ + 2♠).
+				return _on_card_clicked(card)
+			return false
+		else:
+			_shake_card(card)
+			return false
+
+	# First card clicked: if another same-rank card can be chained, start staging instead of playing immediately
+	if _can_extend_chain(card):
+		_cancel_jump_flow()
+		_answer_timer_token += 1  # pause Q/8 countdown while staging
+		staged_chain.append(card)
+		_refresh_staged_visuals()
+		_update_ui_state()
+		_restart_chain_timer()
+		return true
+
+	# Otherwise, no chain is possible—play the single card immediately
+	return _commit_cards([card])
+
+
+func _restart_chain_timer() -> void:
+	_chain_timer_token += 1
+	var token := _chain_timer_token
+	turn_label.text = "Chaining %d card(s)... tap another or wait" % staged_chain.size()
+	await get_tree().create_timer(1.8).timeout
+	if token != _chain_timer_token or staged_chain.is_empty():
+		return
+	var cards_to_play := staged_chain.duplicate()
+	staged_chain.clear()
+	_commit_cards(cards_to_play)
+
+
+func _commit_cards(cards: Array[Card]) -> bool:
+	_chain_timer_token += 1
 	var had_penalty := game.pending_penalty > 0
-	if game.play_card(0, card, is_niko_kadi_declared):
+	var typed_cards: Array[Card] = []
+	typed_cards.assign(cards)
+
+	var declare_flag := is_niko_kadi_declared and game.can_declare_on_play(0, typed_cards)
+	if game.play_cards(0, typed_cards, declare_flag):
 		_cancel_jump_flow()
 		_answer_timer_token += 1
 		is_niko_kadi_declared = false
@@ -767,7 +935,9 @@ func _on_card_clicked(card: Card) -> bool:
 		_update_suit_indicator()
 		_update_ui_state()
 		_check_game_over()
-		if card.rank == 14 and had_penalty:
+
+		var lead_card := typed_cards[0]
+		if lead_card.rank == 14 and had_penalty and not game.awaiting_suit_choice:
 			_show_notice("Ace blocked the penalty")
 			if game.current_player == 1:
 				_maybe_start_bot()
@@ -781,13 +951,15 @@ func _on_card_clicked(card: Card) -> bool:
 			_check_jump_state()
 		return true
 	else:
-		# Illegal move - shake the card
-		_shake_card(card)
+		_show_deal()
+		_shake_card(cards[0])
 		return false
 
 func _on_draw_pile_clicked() -> void:
 	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0 or game.awaiting_suit_choice or game.pending_jump_rank != 0:
 		return
+	staged_chain.clear()
+	_chain_timer_token += 1
 	_answer_timer_token += 1
 	game.pick_up(0)
 	is_niko_kadi_declared = false
@@ -818,6 +990,7 @@ func _check_game_over() -> void:
 	var result := game.is_game_over()
 	if result == 0:
 		return
+	game.log_event("GAME OVER: %s won!" % ("You" if result == 1 else "Opp"))
 	_game_over_shown = true
 	_game_over_result = result
 	input_enabled = false
@@ -831,6 +1004,121 @@ func _check_game_over() -> void:
 	game_over_label.text = "You win!" if result == 1 else "You lose!"
 	game_over_label.visible = true
 	_update_declaration_banner()
+
+
+# Chain staging helpers
+func _can_extend_chain(card: Card) -> bool:
+	if card in staged_chain:
+		return false
+	# GameState forbids chains that empty your hand (cards.size() >= hands.size())
+	if staged_chain.size() + 1 >= game.hands[0].size():
+		return false
+	if staged_chain.is_empty():
+		if not game.can_play(card):
+			return false
+		# Only open a chain window if you hold another card of the same rank AND > 2 cards
+		if game.hands[0].size() <= 2:
+			return false
+		for other in game.hands[0]:
+			if other != card and other.rank == card.rank:
+				return true
+		return false
+	else:
+		return card.rank == staged_chain[0].rank
+
+
+# Is there any legal play right now (single card or same-rank chain) that would
+# leave exactly one plain card, i.e. a declarable Niko Kadi finish?
+func _has_declaration_play() -> bool:
+	var hand: Array = game.hands[0]
+	if hand.size() < 2:
+		return false
+	var needed: int = hand.size() - 1
+	var groups: Dictionary = {}
+	for item in hand:
+		var card: Card = item as Card
+		if not groups.has(card.rank):
+			groups[card.rank] = []
+		(groups[card.rank] as Array).append(card)
+	for rank in groups.keys():
+		var cards: Array = groups[rank]
+		if cards.size() < needed:
+			continue
+		for subset in _combinations(cards, needed):
+			if _subset_can_declare(subset):
+				return true
+	return false
+
+
+# GameState only checks the first card of a chain for legality, so try every
+# rotation of the candidate play before ruling it out.
+func _subset_can_declare(subset: Array) -> bool:
+	for offset in subset.size():
+		var ordered: Array[Card] = []
+		for i in subset.size():
+			ordered.append(subset[(offset + i) % subset.size()] as Card)
+		if game.can_declare_on_play(0, ordered):
+			return true
+	return false
+
+
+func _combinations(cards: Array, take: int) -> Array:
+	var result: Array = []
+	if take <= 0 or take > cards.size():
+		return result
+	var current: Array = []
+	_collect_combinations(cards, 0, take, current, result)
+	return result
+
+
+func _collect_combinations(cards: Array, start: int, take: int,
+		current: Array, result: Array) -> void:
+	if current.size() == take:
+		result.append(current.duplicate())
+		return
+	var remaining: int = take - current.size()
+	for i in range(start, cards.size() - remaining + 1):
+		current.append(cards[i])
+		_collect_combinations(cards, i + 1, take, current, result)
+		current.pop_back()
+
+
+func _can_show_niko_kadi() -> bool:
+	if game.current_player != 0 or game.awaiting_suit_choice or game.is_game_over() != 0:
+		return false
+	if staged_chain.is_empty():
+		return _has_declaration_play()
+	# Keep the toggle visible and armed through the whole chain: as long as this
+	# staged prefix can still be completed into a declaration, the player can
+	# switch it ON now instead of during the short final commit window.
+	var hand: Array = game.hands[0]
+	if game.can_declare_on_play(0, staged_chain):
+		return true
+	var needed: int = hand.size() - staged_chain.size() - 1
+	if needed <= 0:
+		return false
+	var rank: int = (staged_chain[0] as Card).rank
+	var extras: Array = []
+	for item in hand:
+		var card: Card = item as Card
+		if not (card in staged_chain) and card.rank == rank:
+			extras.append(card)
+	for subset in _combinations(extras, needed):
+		var candidate: Array[Card] = []
+		for card in staged_chain:
+			candidate.append(card as Card)
+		for card in subset:
+			candidate.append(card as Card)
+		if game.can_declare_on_play(0, candidate):
+			return true
+	return false
+
+
+func _refresh_staged_visuals() -> void:
+	var base_y := SCREEN_SIZE.y - MARGIN - CARD_SIZE.y / 2.0
+	for cv in my_hand_views:
+		cv.position.y = base_y - (28.0 if cv.card in staged_chain else 0.0)
+
 
 # Instantiate the scene (not just the script) so the CardView has its Sprite2D,
 # and add it to the tree before set_card() so @onready is assigned.

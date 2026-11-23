@@ -31,6 +31,15 @@ func _init() -> void:
 	all_passed = test_ace_of_other_suit_answers() and all_passed
 	all_passed = test_two_answer_adds_penalty() and all_passed
 
+	# Last-card finish rule tests
+	all_passed = test_lone_three_on_penalty_no_win() and all_passed
+	all_passed = test_lone_plain_declared_wins() and all_passed
+	all_passed = test_plain_last_card_locked_without_opponent() and all_passed
+	all_passed = test_empty_hand_no_legal_move_pickup() and all_passed
+	all_passed = test_lone_queen_pickup_ends_turn() and all_passed
+	all_passed = test_lone_jump_accept_then_pickup() and all_passed
+	all_passed = test_special_empty_hand_not_game_over() and all_passed
+
 	if all_passed:
 		print("\nALL RULE TESTS PASSED")
 	else:
@@ -268,27 +277,29 @@ func test_jump_plus_seven_not_winning() -> bool:
 	return true
 
 func test_special_last_card_never_winning() -> bool:
-	var game := GameState.new()
-	game.start_game()
-	game.discard_pile = [Card.new(9, 0)]
-	game.current_suit = 0
-	game.current_player = 0
-	
-	var c2 := Card.new(2, 0)
-	game.hands[0] = [c2]
-	game.declared[0] = true
-	game.unlocked[0] = true
-	if game.can_play(c2):
-		print("FAIL: test_special_last_card_never_winning (2 should not be playable as last card)")
-		return false
-		
-	var k := Card.new(13, 0)
-	game.hands[0] = [k]
-	if game.can_play(k):
-		print("FAIL: test_special_last_card_never_winning (King should not be playable as last card)")
-		return false
-		
-	print("PASS: a special last card never winning")
+	# A special card may be a last card: it empties the hand without a win and
+	# without a forced draw.
+	for rank in [2, 3, 8, 11, 12, 13]:
+		var game := GameState.new()
+		game.start_game()
+		game.discard_pile = [Card.new(9, 0)]
+		game.current_suit = 0
+		game.current_player = 0
+
+		var special := Card.new(rank, 0)
+		game.hands[0] = [special]
+		game.hands[1] = [Card.new(5, 1), Card.new(6, 1)]
+		if not game.can_play(special):
+			print("FAIL: test_special_last_card_never_winning (%d should be playable as last card)" % rank)
+			return false
+		if not game.play_card(0, special, false):
+			print("FAIL: test_special_last_card_never_winning (play %d)" % rank)
+			return false
+		if not game.hands[0].is_empty() or game.winner != 0 or game.is_game_over() != 0:
+			print("FAIL: test_special_last_card_never_winning (%d must leave 0 cards, no win, no draw)" % rank)
+			return false
+
+	print("PASS: special last cards empty the hand but never win or draw")
 	return true
 
 # --- New tests requested ---
@@ -371,18 +382,18 @@ func test_lone_ace_on_pending_penalty() -> bool:
 		print("FAIL: test_lone_ace_on_pending_penalty (play lone ace)")
 		return false
 		
-	# Lone Ace on pending penalty makes player 1 pick up 1 card and doesn't win
-	if game.hands[1].size() != 1:
-		print("FAIL: test_lone_ace_on_pending_penalty (player 1 should have picked up 1 card)")
+	# Lone Ace on pending penalty empties player 1's hand without a win or a draw
+	if not game.hands[1].is_empty():
+		print("FAIL: test_lone_ace_on_pending_penalty (player 1 should have 0 cards, no forced draw)")
 		return false
-	if game.is_game_over() != 0:
+	if game.winner != 0 or game.is_game_over() != 0:
 		print("FAIL: test_lone_ace_on_pending_penalty (game should not be over)")
 		return false
 	if game.current_player != 0:
 		print("FAIL: test_lone_ace_on_pending_penalty (turn should pass to player 0)")
 		return false
 		
-	print("PASS: a lone Ace on a pending penalty makes the player pick up 1 card and doesn't win")
+	print("PASS: a lone Ace on a pending penalty leaves 0 cards, no win and no forced draw")
 	return true
 
 func test_jump_finish_with_declare() -> bool:
@@ -515,17 +526,17 @@ func test_lone_ace_last_card_no_win() -> bool:
 		return false
 		
 	game.choose_suit(0, 1, false) # choose Diamonds
-	if game.hands[0].size() != 1:
-		print("FAIL: test_lone_ace_last_card_no_win (should have picked up 1 card)")
+	if not game.hands[0].is_empty():
+		print("FAIL: test_lone_ace_last_card_no_win (should have 0 cards, no forced draw)")
 		return false
-	if game.is_game_over() != 0:
+	if game.winner != 0 or game.is_game_over() != 0:
 		print("FAIL: test_lone_ace_last_card_no_win (should not win)")
 		return false
 	if game.current_player != 1:
 		print("FAIL: test_lone_ace_last_card_no_win (turn should pass to opponent)")
 		return false
 		
-	print("PASS: lone Ace plays, chooses suit, picks up 1 card, no win shown")
+	print("PASS: lone Ace plays, chooses suit, leaves 0 cards, no win and no forced draw")
 	return true
 
 
@@ -728,3 +739,185 @@ func test_two_answer_adds_penalty() -> bool:
 
 	print("PASS: a 2H answer leaves the opponent facing a pending penalty of 2")
 	return true
+
+
+# --- Last-card finish rule ---
+
+func test_lone_three_on_penalty_no_win() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	game.pending_penalty = 2
+	var three := Card.new(3, 3)
+	game.hands[0] = [three]
+	game.hands[1] = [Card.new(9, 0), Card.new(8, 0)]
+
+	if not game.can_play(three):
+		print("FAIL: test_lone_three_on_penalty_no_win (3S not playable on penalty)")
+		return false
+	if not game.play_card(0, three, false):
+		print("FAIL: test_lone_three_on_penalty_no_win (play 3S)")
+		return false
+	if not game.hands[0].is_empty() or game.winner != 0 or game.is_game_over() != 0:
+		print("FAIL: test_lone_three_on_penalty_no_win (empty hand must not win or draw)")
+		return false
+	if game.pending_penalty != 5 or game.current_player != 1:
+		print("FAIL: test_lone_three_on_penalty_no_win (stack/turn after 3S)")
+		return false
+
+	print("PASS: lone 3S on a penalty leaves 0 cards, no winner, no draw")
+	return true
+
+
+func test_lone_plain_declared_wins() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	var four := Card.new(4, 3)
+	game.hands[0] = [four]
+	game.hands[1] = [Card.new(9, 0)]
+	game.declared[0] = true
+	game.unlocked[0] = true
+
+	if not game.can_play(four):
+		print("FAIL: test_lone_plain_declared_wins (4S should be playable)")
+		return false
+	if not game.play_card(0, four, false):
+		print("FAIL: test_lone_plain_declared_wins (play 4S)")
+		return false
+	if not game.hands[0].is_empty() or game.winner != 1 or game.is_game_over() != 1:
+		print("FAIL: test_lone_plain_declared_wins (player 0 should win)")
+		return false
+
+	print("PASS: lone plain last card with declare+unlock wins")
+	return true
+
+
+func test_plain_last_card_locked_without_opponent() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	var four := Card.new(4, 3)
+	game.hands[0] = [four]
+	game.hands[1] = []
+	game.declared[0] = true
+	game.unlocked[0] = true
+
+	if game.can_play(four):
+		print("FAIL: test_plain_last_card_locked_without_opponent (4S should be locked)")
+		return false
+	if game.has_legal_move(0) or game.is_game_over() != 0:
+		print("FAIL: test_plain_last_card_locked_without_opponent (no legal move, game not over)")
+		return false
+
+	print("PASS: plain last card locked when opponent has 0 cards")
+	return true
+
+
+func test_empty_hand_no_legal_move_pickup() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	game.hands[0] = []
+	game.hands[1] = [Card.new(9, 0)]
+
+	if game.has_legal_move(0):
+		print("FAIL: test_empty_hand_no_legal_move_pickup (empty hand has a legal move)")
+		return false
+	game.pick_up(0)
+	if game.hands[0].size() != 1 or game.current_player != 1 or game.is_game_over() != 0:
+		print("FAIL: test_empty_hand_no_legal_move_pickup (pickup should give 1 card)")
+		return false
+
+	print("PASS: player with 0 cards has no legal move and pick_up gives 1 card")
+	return true
+
+
+func test_lone_queen_pickup_ends_turn() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	var queen := Card.new(12, 3)
+	game.hands[0] = [queen]
+	game.hands[1] = [Card.new(9, 0)]
+
+	if not game.play_card(0, queen, false):
+		print("FAIL: test_lone_queen_pickup_ends_turn (play Q)")
+		return false
+	if not game.awaiting_answer or not game.hands[0].is_empty():
+		print("FAIL: test_lone_queen_pickup_ends_turn (question state after Q)")
+		return false
+	game.pick_up(0)
+	if game.awaiting_answer or game.hands[0].size() != 1 or game.current_player != 1:
+		print("FAIL: test_lone_queen_pickup_ends_turn (pickup should answer and end turn)")
+		return false
+	if game.is_game_over() != 0:
+		print("FAIL: test_lone_queen_pickup_ends_turn (game should not be over)")
+		return false
+
+	print("PASS: lone Q leaves awaiting_answer true and pick_up ends the turn")
+	return true
+
+
+func test_lone_jump_accept_then_pickup() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	var jack := Card.new(11, 3)
+	game.hands[0] = [jack]
+	game.hands[1] = [Card.new(9, 0)]
+
+	if not game.play_card(0, jack, false):
+		print("FAIL: test_lone_jump_accept_then_pickup (play J)")
+		return false
+	if game.pending_jump_rank != 11 or game.current_player != 1 or not game.hands[0].is_empty():
+		print("FAIL: test_lone_jump_accept_then_pickup (jump state after J)")
+		return false
+	if not game.accept_jump(1):
+		print("FAIL: test_lone_jump_accept_then_pickup (accept_jump)")
+		return false
+	if game.current_player != 0 or game.pending_jump_rank != 0:
+		print("FAIL: test_lone_jump_accept_then_pickup (turn after accept)")
+		return false
+	game.pick_up(0)
+	if game.hands[0].size() != 1 or game.current_player != 1:
+		print("FAIL: test_lone_jump_accept_then_pickup (jumper at 0 cards must pick up)")
+		return false
+
+	print("PASS: lone J, opponent accepts, jumper at 0 cards picks up")
+	return true
+
+
+func test_special_empty_hand_not_game_over() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	var two := Card.new(2, 3)
+	game.hands[0] = [two]
+	game.hands[1] = [Card.new(9, 0)]
+
+	if not game.play_card(0, two, false) or not game.hands[0].is_empty():
+		print("FAIL: test_special_empty_hand_not_game_over (play 2S)")
+		return false
+	if game.winner != 0 or game.is_game_over() != 0:
+		print("FAIL: test_special_empty_hand_not_game_over (empty special hand must not end game)")
+		return false
+
+	print("PASS: is_game_over stays 0 after an empty hand caused by a special card")
+	return true
+
+

@@ -16,7 +16,6 @@ func _bot_step() -> void:
 class TracedGame extends GameState:
 	var trace: Array[String] = []
 	var ended_by: String = ""
-	var winner: int = 0
 
 	var _hands_declared: Array[bool] = [false, false]
 
