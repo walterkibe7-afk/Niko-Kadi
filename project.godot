@@ -11,8 +11,12 @@ config_version=5
 [application]
 
 config/name="Kadi"
-run/main_scene="res://scenes/table.tscn"
+run/main_scene="res://scenes/main/main.tscn"
 config/features=PackedStringArray("4.7")
+
+[autoload]
+
+Progression="*res://scripts/progression/player_progress.gd"
 
 [display]
 
@@ -22,6 +26,7 @@ window/size/resizable=false
 window/size/window_width_override=360
 window/size/window_height_override=640
 window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 window/handheld/orientation=1
 
 [rendering]

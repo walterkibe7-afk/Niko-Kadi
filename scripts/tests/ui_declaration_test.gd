@@ -201,11 +201,12 @@ func _run() -> void:
 	table.game.unlocked[0] = true
 	table._show_deal()
 	table._process(0.016)
-	_ok(table.locked_hint.visible and table.locked_hint.text == "You can't finish while the opponent has no cards",
+	_ok(table.locked_hint.visible and table.locked_hint.text == "You can't win while the opponent has no cards",
 		"locked hint explains the opponent has no cards")
 	table.game.declared[0] = false
 	table._process(0.016)
-	_ok(table.locked_hint.text.begins_with("Last card locked"), "normal locked hint text restored")
+	_ok(table.locked_hint.text.begins_with("Last card won't win unless you declare"),
+		"normal locked hint text restored")
 
 	# --- Hand counts with limit, and 11-card layout ---
 	table.queue_free()

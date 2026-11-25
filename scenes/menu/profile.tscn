@@ -1,0 +1,242 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/profile.gd" id="1_profile_gd"]
+[ext_resource type="Texture2D" path="res://assets/table/felt.png" id="2_felt"]
+[ext_resource type="PackedScene" path="res://scenes/ui/sub_screen_header.tscn" id="3_header"]
+
+[sub_resource type="StyleBoxFlat" id="sb_card"]
+bg_color = Color(0.02, 0.1, 0.06, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.7, 0.35, 0.6)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="sb_input"]
+bg_color = Color(0.03, 0.06, 0.05, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.85, 0.7, 0.35, 0.5)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+content_margin_left = 14.0
+content_margin_top = 10.0
+content_margin_right = 14.0
+content_margin_bottom = 10.0
+
+[sub_resource type="StyleBoxFlat" id="sb_save_n"]
+bg_color = Color(0.93, 0.78, 0.32, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+content_margin_left = 18.0
+content_margin_top = 10.0
+content_margin_right = 18.0
+content_margin_bottom = 10.0
+
+[sub_resource type="StyleBoxFlat" id="sb_save_h"]
+bg_color = Color(0.98, 0.87, 0.48, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+content_margin_left = 18.0
+content_margin_top = 10.0
+content_margin_right = 18.0
+content_margin_bottom = 10.0
+
+[node name="Profile" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_profile_gd")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_felt")
+expand_mode = 1
+stretch_mode = 6
+mouse_filter = 2
+
+[node name="Vignette" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.01, 0.05, 0.03, 0.62)
+mouse_filter = 2
+
+[node name="SafeMargin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 28
+
+[node name="MainVBox" type="VBoxContainer" parent="SafeMargin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="SubScreenHeader" parent="SafeMargin/MainVBox" instance=ExtResource("3_header")]
+layout_mode = 2
+title_text = "Player Profile"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="SafeMargin/MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ContentVBox" type="VBoxContainer" parent="SafeMargin/MainVBox/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 18
+
+[node name="IdentityCard" type="PanelContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("sb_card")
+
+[node name="MarginContainer" type="MarginContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/IdentityCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 18
+
+[node name="VBoxContainer" type="VBoxContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/IdentityCard/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="NamePrompt" type="Label" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/IdentityCard/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.78, 0.32, 1)
+theme_override_font_sizes/font_size = 14
+text = "TABLE IDENTITY"
+
+[node name="NameRow" type="HBoxContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/IdentityCard/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="NameInput" type="LineEdit" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/IdentityCard/MarginContainer/VBoxContainer/NameRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.97, 0.95, 0.88, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("sb_input")
+max_length = 18
+
+[node name="SaveNameButton" type="Button" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/IdentityCard/MarginContainer/VBoxContainer/NameRow"]
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.1, 0.08, 0.03, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("sb_save_n")
+theme_override_styles/hover = SubResource("sb_save_h")
+text = "Save"
+
+[node name="EquippedLabel" type="Label" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/IdentityCard/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.87, 0.82, 0.9)
+theme_override_font_sizes/font_size = 15
+text = "Arena: Emerald Lounge  •  Deck: Royal Emerald"
+
+[node name="StatsCard" type="PanelContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("sb_card")
+
+[node name="MarginContainer" type="MarginContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 18
+
+[node name="StatsRow" type="HBoxContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard/MarginContainer"]
+layout_mode = 2
+
+[node name="MatchesBox" type="VBoxContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard/MarginContainer/StatsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MatchesValue" type="Label" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard/MarginContainer/StatsRow/MatchesBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.95, 0.88, 1)
+theme_override_font_sizes/font_size = 32
+text = "0"
+horizontal_alignment = 1
+
+[node name="MatchesLabel" type="Label" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard/MarginContainer/StatsRow/MatchesBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.84, 0.78, 0.85)
+theme_override_font_sizes/font_size = 14
+text = "Matches"
+horizontal_alignment = 1
+
+[node name="WinsBox" type="VBoxContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard/MarginContainer/StatsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="WinsValue" type="Label" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard/MarginContainer/StatsRow/WinsBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.78, 0.32, 1)
+theme_override_font_sizes/font_size = 32
+text = "0"
+horizontal_alignment = 1
+
+[node name="WinsLabel" type="Label" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard/MarginContainer/StatsRow/WinsBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.84, 0.78, 0.85)
+theme_override_font_sizes/font_size = 14
+text = "Wins"
+horizontal_alignment = 1
+
+[node name="RateBox" type="VBoxContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard/MarginContainer/StatsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RateValue" type="Label" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard/MarginContainer/StatsRow/RateBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.95, 0.88, 1)
+theme_override_font_sizes/font_size = 32
+text = "0%"
+horizontal_alignment = 1
+
+[node name="RateLabel" type="Label" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox/StatsCard/MarginContainer/StatsRow/RateBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.84, 0.78, 0.85)
+theme_override_font_sizes/font_size = 14
+text = "Win Rate"
+horizontal_alignment = 1
+
+[node name="AchievementsTitle" type="Label" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.78, 0.32, 1)
+theme_override_font_sizes/font_size = 15
+text = "ACHIEVEMENTS"
+
+[node name="AchievementsList" type="VBoxContainer" parent="SafeMargin/MainVBox/ScrollContainer/ContentVBox"]
+layout_mode = 2
+theme_override_constants/separation = 12

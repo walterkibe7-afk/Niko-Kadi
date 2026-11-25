@@ -21,6 +21,10 @@ var pending_jump_rank: int = 0          # 11 (J) or 13 (K) while the target may 
 var pending_jump_by: int = -1           # who played the last J/K
 var awaiting_answer: bool = false       # after a Q or 8, the same player must answer or pick up
 var question_suit: int = -1
+var awaiting_call: bool = false  # after two Aces, until an exact card is called
+var call_rank: int = 0           # called card's number, 0 = no active call
+var call_suit: int = -1          # -1 = no active call
+var print_log: bool = true
 
 # --- Declaration ("Niko Kadi") ---
 var declared: Array[bool] = [false, false]  # declared on the play that left them with 1 card
@@ -60,18 +64,37 @@ func has_declared(player: int) -> bool:
 	return declared[player] and hands[player].size() == 1
 
 
+func can_win_with_last_card(player: int) -> bool:
+	return declared[player] and unlocked[player] and not hands[1 - player].is_empty()
+
+
+# Declare on your own turn while holding one plain card. The opponent has already
+# had a full turn since you got down to this card, so it unlocks immediately.
+func declare_now(player: int) -> void:
+	assert(current_player == player, "declare_now is for your own turn")
+	assert(not awaiting_answer, "Can't declare in the middle of a Q/8 answer")
+	assert(hands[player].size() == 1 and hands[player][0].is_plain(), "Declaring needs exactly one plain card")
+	assert(not declared[player], "Already declared")
+	declared[player] = true
+	unlocked[player] = true
+	_log("%s declared NIKO KADI! (1 card left)" % _who(player))
+
+
+# Declare after the play that left you with 1 plain card, before the opponent moves.
+func declare_late(player: int) -> void:
+	assert(current_player != player, "Late declaration must happen before the opponent acts")
+	assert(hands[player].size() == 1 and hands[player][0].is_plain(), "Late declaration needs exactly one plain card")
+	assert(not declared[player], "Already declared")
+	declared[player] = true
+	_log("%s declared NIKO KADI! (1 card left)" % _who(player))
+
+
 # Is this card legal for the current player right now?
 func can_play(card: Card) -> bool:
-	# A plain last card (4-10) is locked until you have declared, the opponent
-	# has had a full turn, and the opponent still has cards. Special cards can
-	# still be played as a last card, but they never win.
-	if hands[current_player].size() == 1 and card.is_plain():
-		var opponent_has_cards: bool = not hands[1 - current_player].is_empty()
-		if not (declared[current_player] and unlocked[current_player] and opponent_has_cards):
-			return false
-
 	if pending_jump_rank != 0:
 		return card.rank == pending_jump_rank  # J answers J, K answers K
+	if call_rank != 0:
+		return card.rank == 14 or (card.rank == call_rank and card.suit == call_suit)
 	if card.rank == 14:
 		return true  # an Ace goes on anything and cancels a 2/3 stack
 	if pending_penalty > 0:
@@ -99,7 +122,7 @@ func play_card(player: int, card: Card, declare: bool) -> bool:
 # cards = the play order. The first must be legal; all must share one rank.
 # The last card played sets the suit in play.
 func play_cards(player: int, cards: Array[Card], declare: bool) -> bool:
-	if player != current_player or awaiting_suit_choice or cards.is_empty():
+	if player != current_player or awaiting_suit_choice or awaiting_call or cards.is_empty():
 		return false
 	var rank: int = cards[0].rank
 	for card in cards:
@@ -113,15 +136,20 @@ func play_cards(player: int, cards: Array[Card], declare: bool) -> bool:
 	# Enforce declaration rules here, not only in the UI: callers (including the
 	# bot) may pass declare=true for an ineligible last card such as a Q.
 	var valid_declare := declare and can_declare_on_play(player, cards)
+	var can_win: bool = can_win_with_last_card(player)
 
+	var suit_before: int = current_suit
+	var was_calling: bool = call_rank != 0
 	for card in cards:
 		hands[player].erase(card)
 		discard_pile.append(card)
 	# Only a plain card played as the very last card wins
-	if hands[player].is_empty() and cards[0].is_plain():
+	if hands[player].is_empty() and cards[0].is_plain() and can_win:
 		winner = player + 1
 	current_suit = cards.back().suit
 	awaiting_answer = false
+	call_rank = 0
+	call_suit = -1
 
 	# A play that leaves exactly 1 card must declare, otherwise the last card stays locked
 	declared[player] = hands[player].size() == 1 and valid_declare
@@ -136,14 +164,26 @@ func play_cards(player: int, cards: Array[Card], declare: bool) -> bool:
 			_log("%s played %s (penalty stack=%d, hand=%d)" % [_who(player), played_str, pending_penalty, rem])
 			_end_turn(player)
 		14:
-			if pending_penalty > 0:
+			if was_calling:
+				if count >= 2:
+					awaiting_suit_choice = true  # two Aces cancel the call, suit only
+					_log("%s countered the call with %s (choosing suit, hand=%d)" % [_who(player), played_str, rem])
+				else:
+					current_suit = suit_before  # one Ace removes the number, called suit stays
+					_log("%s countered the call with %s (number removed, suit stays %s, hand=%d)" % [_who(player), played_str, _suit_sym(current_suit), rem])
+					_end_turn(player)
+			elif pending_penalty > 0:
 				pending_penalty = 0  # the first Ace blocks
 				if count >= 2:
 					awaiting_suit_choice = true  # the second Ace changes the suit
 					_log("%s played %s (blocked penalty, choosing suit, hand=%d)" % [_who(player), played_str, rem])
 				else:
-					_log("%s played %s (blocked penalty, hand=%d)" % [_who(player), played_str, rem])
+					current_suit = suit_before  # a blocking Ace is transparent
+					_log("%s played %s (blocked penalty, suit stays %s, hand=%d)" % [_who(player), played_str, _suit_sym(current_suit), rem])
 					_end_turn(player)
+			elif count >= 2:
+				awaiting_call = true  # two Aces call an exact card
+				_log("%s played %s (calling an exact card, hand=%d)" % [_who(player), played_str, rem])
 			else:
 				awaiting_suit_choice = true
 				_log("%s played %s (choosing suit, hand=%d)" % [_who(player), played_str, rem])
@@ -173,14 +213,39 @@ func choose_suit(player: int, suit: int, declare: bool) -> bool:
 	_log("%s chose suit %s" % [_who(player), _suit_sym(suit)])
 	current_suit = suit
 	awaiting_suit_choice = false
-	# Declaring here counts as declaring on the Ace play, but only if the remaining
-	# card is a plain finishing card (special cards never win). Skip the log if the
-	# Ace play already declared, so one declaration is not announced twice.
+	_declare_after_choice(player, declare)
+	_end_turn(player)
+	return true
+
+
+func _declare_after_choice(player: int, declare: bool) -> void:
 	if hands[player].size() == 1 and declare and hands[player][0].is_plain() and not declared[player]:
 		declared[player] = true
 		_log("%s declared NIKO KADI! (1 card left)" % _who(player))
+
+
+func choose_call(player: int, rank: int, suit: int, declare: bool) -> bool:
+	if player != current_player or not awaiting_call:
+		return false
+	assert(rank >= 2 and rank <= 13, "Called rank must be 2-13")
+	assert(suit >= 0 and suit <= 3, "Called suit must be 0-3")
+	_log("%s called %s%s" % [_who(player), rank_str(rank), _suit_sym(suit)])
+	call_rank = rank
+	call_suit = suit
+	current_suit = suit
+	awaiting_call = false
+	_declare_after_choice(player, declare)
 	_end_turn(player)
 	return true
+
+
+func rank_str(rank: int) -> String:
+	match rank:
+		11: return "J"
+		12: return "Q"
+		13: return "K"
+		14: return "A"
+		_: return str(rank)
 
 
 # The target of a J/K gives in: they are skipped and the jumper plays again
@@ -200,7 +265,7 @@ func accept_jump(player: int) -> bool:
 
 # Pick up 1 card, or the whole penalty stack. Also ends an unanswered question.
 func pick_up(player: int) -> void:
-	if player != current_player or awaiting_suit_choice or pending_jump_rank != 0:
+	if player != current_player or awaiting_suit_choice or awaiting_call or pending_jump_rank != 0:
 		return
 	var count := 1
 	var reason := "draw"
@@ -210,9 +275,13 @@ func pick_up(player: int) -> void:
 		reason = "penalty"
 	elif awaiting_answer:
 		reason = "unanswered Q/8"
+	elif call_rank != 0:
+		reason = "called card"
 	for i in count:
 		hands[player].append(_draw_card())
 	awaiting_answer = false
+	call_rank = 0
+	call_suit = -1
 	declared[player] = false  # picking up voids a declaration
 	unlocked[player] = false
 	_log("%s picked up %d (%s) -> hand=%d" % [_who(player), count, reason, hands[player].size()])
@@ -262,7 +331,7 @@ func is_game_over() -> int:
 # - That 1 card must be a plain card (4-10), not a special that triggers awaiting_answer
 # - All cards must be same rank, legal to play, and not empty the hand
 func can_declare_on_play(player: int, cards: Array[Card]) -> bool:
-	if player != current_player or awaiting_suit_choice or cards.is_empty():
+	if player != current_player or awaiting_suit_choice or awaiting_call or cards.is_empty():
 		return false
 	if hands[player].size() - cards.size() != 1:
 		return false
@@ -307,5 +376,6 @@ func _cards_str(cards: Array[Card]) -> String:
 func _log(msg: String) -> void:
 	var entry := "[%02d] %s" % [log_entries.size() + 1, msg]
 	log_entries.append(entry)
-	print("[SYS] " + entry)
+	if print_log:
+		print("[SYS] " + entry)
 	log_added.emit(entry)

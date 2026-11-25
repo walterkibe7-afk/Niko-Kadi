@@ -1,11 +1,18 @@
 class_name Table
 extends Node2D
 
+signal match_finished(player_won: bool)
+signal exit_to_dashboard_requested
+
 const SCREEN_SIZE := Vector2(720, 1280)
 const MARGIN := 40.0
 const CARD_SIZE := Vector2(120, 168)
 const CARD_VIEW_SCENE := preload("res://scenes/card_view.tscn")
 const SIMPLE_BOT := preload("res://scripts/bot/simple_bot.gd")
+const SMART_BOT := preload("res://scripts/bot/smart_bot.gd")
+
+# The easy opponent plays by the old rules but slips this often.
+const EASY_MISTAKE_RATE := 0.25
 
 const SUIT_SYMBOLS := ["♥", "♦", "♣", "♠"]
 const SUIT_NAMES := ["Hearts", "Diamonds", "Clubs", "Spades"]
@@ -16,29 +23,45 @@ const OPPONENT_BANNER_TEXT := "OPPONENT: NIKO KADI!"
 const PLAYER_BANNER_TEXT := "YOU: NIKO KADI!"
 
 var game: GameState
-var turn_label: Label
-var game_over_label: Label
-var notice_banner: Label
-var opponent_banner: Panel
-var opponent_banner_label: Label
-var player_banner: Panel
-var player_banner_label: Label
-var suit_indicator_panel: Panel
-var suit_indicator_label: Label
-var suit_picker_overlay: ColorRect
-var suit_buttons: Array[Button] = []
-var niko_kadi_button: Button
-var niko_kadi_hint: Label
-var my_count_label: Label
-var opp_count_label: Label
-var suit_picker_niko_button: Button
-var locked_hint: Label
+var clock: ChessClock = null
+
+# --- UI nodes: built in scenes/table.tscn (premium felt layout) ---
+@onready var turn_label: Label = $TurnLabel
+@onready var game_over_label: Label = $GameOverLabel
+@onready var notice_banner: Label = $NoticeBanner
+@onready var opponent_banner: Panel = $OpponentBanner
+@onready var opponent_banner_label: Label = $OpponentBanner/Label
+@onready var player_banner: Panel = $PlayerBanner
+@onready var player_banner_label: Label = $PlayerBanner/Label
+@onready var suit_indicator_panel: Panel = $SuitChip
+@onready var suit_indicator_label: Label = $SuitChip/SuitLabel
+@onready var suit_picker_overlay: ColorRect = $SuitPicker
+@onready var suit_buttons: Array[Button] = [
+	$SuitPicker/BtnHearts, $SuitPicker/BtnDiamonds,
+	$SuitPicker/BtnClubs, $SuitPicker/BtnSpades,
+]
+@onready var niko_kadi_button: Button = $NikoButton
+@onready var niko_kadi_hint: Label = $NikoHint
+@onready var locked_hint: Label = $LockedHint
+@onready var my_count_label: Label = $MyPanel/MyCountLabel
+@onready var opp_count_label: Label = $OppPanel/OppCountLabel
+@onready var my_clock_label: Label = $MyPanel/MyClockLabel
+@onready var opp_clock_label: Label = $OppPanel/OppClockLabel
+@onready var suit_picker_niko_button: Button = $SuitPicker/NikoToggle
+@onready var accept_skip_button: Button = $AcceptSkipButton
+@onready var jump_notice_panel: Panel = $JumpNoticePanel
+@onready var jump_notice_label: Label = $JumpNoticePanel/JumpLabel
+@onready var log_toggle_button: Button = $LogToggleButton
+@onready var bot_button: Button = $BotButton
+@onready var lobby_button: Button = $LobbyButton
+@onready var log_copy_button: Button = $SysLogPanel/CopyButton
+@onready var sys_log_panel: Panel = $SysLogPanel
+@onready var sys_log_text: RichTextLabel = $SysLogPanel/LogText
+
 var is_niko_kadi_declared: bool = false
 var is_suit_picker_niko: bool = false
 var _niko_offer_seen: bool = false
-var accept_skip_button: Button
-var jump_notice_panel: Panel
-var jump_notice_label: Label
+var _late_declare_open: bool = false
 var _last_seen_top_card: Card = null
 var _opp_had_penalty: bool = false
 var _answer_timer_token: int = 0
@@ -54,6 +77,7 @@ var _my_declare_seen: bool = false
 var _opp_declare_until_msec: int = 0
 var _my_declare_until_msec: int = 0
 var _pulse_time: float = 0.0
+var _clock_update_timer: float = 0.0
 
 var input_enabled: bool = true
 var my_hand_views: Array[CardView] = []
@@ -61,87 +85,39 @@ var draw_pile_view: CardView = null
 var staged_chain: Array[Card] = []
 var _chain_timer_token: int = 0
 
-var log_toggle_button: Button
-var log_copy_button: Button
-var sys_log_panel: Panel
-var sys_log_text: RichTextLabel
+var use_smart_bot: bool = true
 var _last_opp_hand_size: int = 0
 
 func _ready() -> void:
 	game = GameState.new()
-	_create_sys_log()
+	clock = ChessClock.new()
 	game.log_added.connect(_on_sys_log_added)
 	game.start_game()
 	_last_opp_hand_size = game.hands[1].size()
-	
-	turn_label = Label.new()
-	turn_label.text = "Your turn"
-	turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	turn_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	turn_label.size = Vector2(720, 44)
-	turn_label.position = Vector2(0, 470)
-	turn_label.add_theme_font_size_override("font_size", 22)
-	turn_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(turn_label)
-	
-	game_over_label = Label.new()
-	game_over_label.text = ""
-	game_over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	game_over_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	game_over_label.size = Vector2(720, 40)
-	game_over_label.position = Vector2(0, 600)
-	game_over_label.add_theme_font_size_override("font_size", 48)
-	game_over_label.modulate = Color(1, 0.2, 0.2)
-	game_over_label.visible = false
-	game_over_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(game_over_label)
-	
-	notice_banner = Label.new()
-	notice_banner.text = ""
-	notice_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	notice_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	notice_banner.size = Vector2(720, 44)
-	notice_banner.position = Vector2(0, 520)
-	notice_banner.add_theme_font_size_override("font_size", 26)
-	notice_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	notice_banner.visible = false
-	notice_banner.z_index = 50
-	add_child(notice_banner)
-	
-	_create_hand_count_labels()
-	_create_declaration_banners()
-	_create_jump_notice()
-	_create_suit_indicator()
-	_create_suit_picker()
-	_create_niko_kadi_button()
-	_create_accept_skip_button()
-	
+
+	# All widgets come from scenes/table.tscn; only refresh state-dependent style.
+	_update_hand_count_labels()
+	_update_niko_kadi_button_style()
+	_update_suit_picker_niko_style()
+	bot_button.text = "Bot: Hard" if use_smart_bot else "Bot: Easy"
+
 	_last_seen_top_card = game.top_card()
 	_show_deal()
 	_update_turn_label()
 	_update_suit_indicator()
 	_update_ui_state()
+	_start_turn_clock(0)
 	_maybe_start_bot()
 
-func _create_hand_count_labels() -> void:
-	opp_count_label = Label.new()
-	opp_count_label.size = Vector2(240, 36)
-	opp_count_label.position = Vector2(MARGIN, 214.0)
-	opp_count_label.add_theme_font_size_override("font_size", 20)
-	opp_count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	opp_count_label.z_index = 20
-	add_child(opp_count_label)
 
-	my_count_label = Label.new()
-	my_count_label.size = Vector2(240, 36)
-	my_count_label.position = Vector2(MARGIN, 1060.0)
-	my_count_label.add_theme_font_size_override("font_size", 20)
-	my_count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	my_count_label.z_index = 20
-	add_child(my_count_label)
-
-	_update_hand_count_labels()
-
+func _notification(what: int) -> void:
+	match what:
+		Node.NOTIFICATION_APPLICATION_PAUSED:
+			if clock and clock.running_player != -1:
+				clock.pause(Time.get_ticks_msec())
+		Node.NOTIFICATION_APPLICATION_RESUMED:
+			if clock and clock.running_player != -1:
+				clock.resume(Time.get_ticks_msec())
 
 func _update_hand_count_labels() -> void:
 	var mine: int = game.hands[0].size()
@@ -153,192 +129,9 @@ func _update_hand_count_labels() -> void:
 	opp_count_label.add_theme_color_override("font_color", warning if theirs >= game.MAX_HAND - 1 else Color.WHITE)
 
 
-func _create_suit_indicator() -> void:
-	suit_indicator_panel = Panel.new()
-	suit_indicator_panel.size = Vector2(140, 68)
-	suit_indicator_panel.position = Vector2(SCREEN_SIZE.x / 2.0 + CARD_SIZE.x + 16.0, SCREEN_SIZE.y / 2.0 - 34.0)
-	suit_indicator_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.95, 0.95, 0.95)
-	style.corner_radius_top_left = 10
-	style.corner_radius_top_right = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
-	style.shadow_color = Color(0, 0, 0, 0.25)
-	style.shadow_size = 3
-	suit_indicator_panel.add_theme_stylebox_override("panel", style)
-	add_child(suit_indicator_panel)
-	
-	suit_indicator_label = Label.new()
-	suit_indicator_label.size = Vector2(140, 68)
-	suit_indicator_label.position = Vector2.ZERO
-	suit_indicator_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	suit_indicator_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	suit_indicator_label.add_theme_font_size_override("font_size", 20)
-	suit_indicator_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	suit_indicator_panel.add_child(suit_indicator_label)
-
-func _create_suit_picker() -> void:
-	suit_picker_overlay = ColorRect.new()
-	suit_picker_overlay.size = SCREEN_SIZE
-	suit_picker_overlay.color = Color(0, 0, 0, 0.7)
-	suit_picker_overlay.visible = false
-	suit_picker_overlay.z_index = 100
-	suit_picker_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(suit_picker_overlay)
-	
-	var title := Label.new()
-	title.text = "Choose a Suit"
-	title.size = Vector2(720, 50)
-	title.position = Vector2(0, 380)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 34)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	suit_picker_overlay.add_child(title)
-	
-	var btn_size := Vector2(140, 130)
-	var positions := [
-		Vector2(210, 460), # Hearts
-		Vector2(370, 460), # Diamonds
-		Vector2(210, 610), # Clubs
-		Vector2(370, 610)  # Spades
-	]
-	
-	for s in 4:
-		var btn := Button.new()
-		btn.text = "%s\n%s" % [SUIT_SYMBOLS[s], SUIT_NAMES[s]]
-		btn.size = btn_size
-		btn.position = positions[s]
-		btn.add_theme_font_size_override("font_size", 28)
-		btn.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		
-		var style_normal := StyleBoxFlat.new()
-		style_normal.bg_color = Color(0.96, 0.96, 0.96)
-		style_normal.corner_radius_top_left = 12
-		style_normal.corner_radius_top_right = 12
-		style_normal.corner_radius_bottom_left = 12
-		style_normal.corner_radius_bottom_right = 12
-		style_normal.shadow_color = Color(0, 0, 0, 0.3)
-		style_normal.shadow_size = 4
-		btn.add_theme_stylebox_override("normal", style_normal)
-		
-		if s == 0 or s == 1:
-			btn.add_theme_color_override("font_color", Color(0.85, 0.1, 0.1))
-		else:
-			btn.add_theme_color_override("font_color", Color(0.12, 0.12, 0.12))
-		
-		suit_picker_overlay.add_child(btn)
-		suit_buttons.append(btn)
-
-	suit_picker_niko_button = Button.new()
-	suit_picker_niko_button.size = Vector2(300, 42)
-	suit_picker_niko_button.position = Vector2(210, 770)
-	suit_picker_niko_button.add_theme_font_size_override("font_size", 20)
-	suit_picker_niko_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_update_suit_picker_niko_style()
-	suit_picker_overlay.add_child(suit_picker_niko_button)
-
-func _create_niko_kadi_button() -> void:
-	niko_kadi_button = Button.new()
-	niko_kadi_button.text = "Niko Kadi: OFF"
-	niko_kadi_button.size = Vector2(170, 42)
-	niko_kadi_button.position = Vector2(40.0, 1005.0)
-	niko_kadi_button.add_theme_font_size_override("font_size", 20)
-	niko_kadi_button.visible = false
-	niko_kadi_button.z_index = 20
-	niko_kadi_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_update_niko_kadi_button_style()
-	add_child(niko_kadi_button)
-	
-	niko_kadi_hint = Label.new()
-	niko_kadi_hint.text = "Switch ON, then play to leave 1 plain card."
-	niko_kadi_hint.size = Vector2(460, 42)
-	niko_kadi_hint.position = Vector2(225.0, 1005.0)
-	niko_kadi_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	niko_kadi_hint.add_theme_font_size_override("font_size", 18)
-	niko_kadi_hint.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-	niko_kadi_hint.visible = false
-	niko_kadi_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	niko_kadi_hint.z_index = 20
-	add_child(niko_kadi_hint)
-
-	locked_hint = Label.new()
-	locked_hint.text = "Last card locked: you didn't declare Niko Kadi. Tap the draw pile."
-	locked_hint.size = Vector2(640, 42)
-	locked_hint.position = Vector2(40.0, 1015.0)
-	locked_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	locked_hint.add_theme_font_size_override("font_size", 18)
-	locked_hint.add_theme_color_override("font_color", Color(1.0, 0.55, 0.55))
-	locked_hint.visible = false
-	locked_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	locked_hint.z_index = 20
-	add_child(locked_hint)
-
-func _create_accept_skip_button() -> void:
-	accept_skip_button = Button.new()
-	accept_skip_button.text = "Accept skip"
-	accept_skip_button.size = Vector2(170, 42)
-	accept_skip_button.position = Vector2((SCREEN_SIZE.x - 170.0) / 2.0, 520.0)
-	accept_skip_button.add_theme_font_size_override("font_size", 20)
-	accept_skip_button.visible = false
-	accept_skip_button.z_index = 20
-	accept_skip_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.92, 0.92, 0.92)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	style.shadow_size = 2
-	style.shadow_color = Color(0, 0, 0, 0.25)
-	accept_skip_button.add_theme_stylebox_override("normal", style)
-	accept_skip_button.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
-	add_child(accept_skip_button)
-
-func _create_sys_log() -> void:
-	log_toggle_button = Button.new()
-	log_toggle_button.text = "Sys Log"
-	log_toggle_button.size = Vector2(110, 36)
-	log_toggle_button.position = Vector2(SCREEN_SIZE.x - 130.0, 220.0)
-	log_toggle_button.add_theme_font_size_override("font_size", 16)
-	log_toggle_button.z_index = 220
-	log_toggle_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(log_toggle_button)
-
-	sys_log_panel = Panel.new()
-	sys_log_panel.size = Vector2(660, 240)
-	sys_log_panel.position = Vector2(30, 264)
-	sys_log_panel.z_index = 220
-	sys_log_panel.visible = false
-	sys_log_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.06, 0.09, 0.92)
-	style.border_color = Color(0.55, 0.75, 1.0, 0.85)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(10)
-	sys_log_panel.add_theme_stylebox_override("panel", style)
-	add_child(sys_log_panel)
-
-	log_copy_button = Button.new()
-	log_copy_button.text = "Copy"
-	log_copy_button.size = Vector2(76, 30)
-	log_copy_button.position = Vector2(574, 8)
-	log_copy_button.add_theme_font_size_override("font_size", 14)
-	log_copy_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sys_log_panel.add_child(log_copy_button)
-
-	sys_log_text = RichTextLabel.new()
-	sys_log_text.size = Vector2(640, 192)
-	sys_log_text.position = Vector2(10, 42)
-	sys_log_text.bbcode_enabled = false
-	sys_log_text.scroll_following = true
-	sys_log_text.selection_enabled = true
-	sys_log_text.add_theme_font_size_override("normal_font_size", 15)
-	sys_log_panel.add_child(sys_log_text)
+func _on_bot_difficulty_toggled() -> void:
+	use_smart_bot = not use_smart_bot
+	bot_button.text = "Bot: Hard" if use_smart_bot else "Bot: Easy"
 
 
 func _on_sys_log_added(entry: String) -> void:
@@ -387,88 +180,6 @@ func _update_suit_picker_niko_style() -> void:
 
 	suit_picker_niko_button.add_theme_stylebox_override("normal", style)
 
-func _create_declaration_banners() -> void:
-	opponent_banner = _make_declaration_banner(OPPONENT_BANNER_TEXT, Color(0.62, 0.05, 0.08), Vector2(10.0, 8.0))
-	opponent_banner_label = opponent_banner.get_child(0) as Label
-	player_banner = _make_declaration_banner(PLAYER_BANNER_TEXT, Color(0.04, 0.42, 0.14), Vector2(SCREEN_SIZE.x - 330.0, 8.0))
-	player_banner_label = player_banner.get_child(0) as Label
-
-
-func _make_declaration_banner(text: String, bg: Color, pos: Vector2) -> Panel:
-	var panel := Panel.new()
-	panel.size = Vector2(320, 76)
-	panel.position = pos
-	panel.z_index = 200
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.visible = false
-
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	style.border_color = Color(1, 1, 1, 0.9)
-	style.border_width_left = 3
-	style.border_width_right = 3
-	style.border_width_top = 3
-	style.border_width_bottom = 3
-	style.corner_radius_top_left = 12
-	style.corner_radius_top_right = 12
-	style.corner_radius_bottom_left = 12
-	style.corner_radius_bottom_right = 12
-	style.shadow_color = Color(0, 0, 0, 0.6)
-	style.shadow_size = 6
-	panel.add_theme_stylebox_override("panel", style)
-
-	var label := Label.new()
-	label.text = text
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.size = panel.size
-	label.position = Vector2.ZERO
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", 30)
-	label.add_theme_color_override("font_color", Color.WHITE)
-	label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(label)
-	add_child(panel)
-	return panel
-
-
-func _create_jump_notice() -> void:
-	jump_notice_panel = Panel.new()
-	jump_notice_panel.size = Vector2(700, 100)
-	jump_notice_panel.position = Vector2(10, 560)
-	jump_notice_panel.z_index = 210
-	jump_notice_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	jump_notice_panel.visible = false
-
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.12, 0.94)
-	style.border_color = Color(1, 0.75, 0.2)
-	style.border_width_left = 3
-	style.border_width_right = 3
-	style.border_width_top = 3
-	style.border_width_bottom = 3
-	style.corner_radius_top_left = 12
-	style.corner_radius_top_right = 12
-	style.corner_radius_bottom_left = 12
-	style.corner_radius_bottom_right = 12
-	jump_notice_panel.add_theme_stylebox_override("panel", style)
-
-	jump_notice_label = Label.new()
-	jump_notice_label.text = ""
-	jump_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	jump_notice_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	jump_notice_label.size = jump_notice_panel.size
-	jump_notice_label.position = Vector2.ZERO
-	jump_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	jump_notice_label.add_theme_font_size_override("font_size", 28)
-	jump_notice_label.add_theme_color_override("font_color", Color.WHITE)
-	jump_notice_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	jump_notice_panel.add_child(jump_notice_label)
-	add_child(jump_notice_panel)
-
 
 func _process(delta: float) -> void:
 	# Catch the exact frame a declaration appears, even if no UI refresh follows.
@@ -489,6 +200,8 @@ func _process(delta: float) -> void:
 	_update_declaration_banner()
 	_check_jump_state()
 	_update_locked_hint()
+	_update_clock_display()
+	_check_clock_flag()
 
 	# Pulse/flash so the banner cannot be mistaken for a static HUD element.
 	_pulse_time += delta
@@ -497,6 +210,12 @@ func _process(delta: float) -> void:
 		if banner.visible:
 			banner.modulate = Color(1, 1, 1, 0.65 + 0.35 * wave)
 			banner.scale = Vector2.ONE * (1.0 + 0.02 * wave)
+
+	# Ping every 2 seconds to measure RTT
+	_clock_update_timer += delta
+	if _clock_update_timer >= 2.0:
+		_clock_update_timer = 0.0
+		_send_ping()
 
 
 func _update_declaration_banner() -> void:
@@ -521,12 +240,23 @@ func _update_ui_state() -> void:
 		_update_declaration_banner()
 		return
 
+	if _late_declare_open:
+		_update_declaration_banner()
+		_check_jump_state()
+		return
+
 	var show_niko := _can_show_niko_kadi()
+	var last_card_declare: bool = show_niko and game.hands[0].size() == 1
 	niko_kadi_button.visible = show_niko
 	niko_kadi_hint.visible = show_niko
+	if last_card_declare:
+		niko_kadi_button.text = "NIKO KADI!"
+		niko_kadi_hint.text = "Tap to declare, then play your last card to win"
+	elif show_niko:
+		niko_kadi_hint.text = "Switch ON, then play to leave 1 plain card."
 	if show_niko and not _niko_offer_seen:
 		_niko_offer_seen = true
-		_show_notice("Niko Kadi available: switch ON, then play to declare")
+		_show_notice("Niko Kadi available: tap it to declare" if last_card_declare else "Niko Kadi available: switch ON, then play to declare")
 	elif not show_niko:
 		_niko_offer_seen = false
 	if not show_niko and is_niko_kadi_declared:
@@ -538,16 +268,68 @@ func _update_ui_state() -> void:
 
 
 func _update_locked_hint() -> void:
-	var locked: bool = false
-	if game.hands[0].size() == 1 and game.is_game_over() == 0:
-		var last_card: Card = game.hands[0][0]
-		var opponent_has_cards: bool = not game.hands[1].is_empty()
-		locked = last_card.is_plain() and not (game.declared[0] and game.unlocked[0] and opponent_has_cards)
-	locked_hint.visible = locked
-	if locked and game.declared[0] and game.unlocked[0] and game.hands[1].is_empty():
-		locked_hint.text = "You can't finish while the opponent has no cards"
+	var one_plain: bool = game.hands[0].size() == 1 and game.is_game_over() == 0 and game.hands[0][0].is_plain()
+	locked_hint.visible = one_plain and not game.can_win_with_last_card(0) and not _late_declare_open and not niko_kadi_button.visible
+	if game.declared[0] and game.hands[1].is_empty():
+		locked_hint.text = "You can't win while the opponent has no cards"
+	elif game.declared[0]:
+		locked_hint.text = "Niko Kadi declared: you can win once the opponent has played"
 	else:
-		locked_hint.text = "Last card locked: you didn't declare Niko Kadi. Tap the draw pile."
+		locked_hint.text = "Last card won't win unless you declare Niko Kadi"
+
+
+func _format_ms(ms: int) -> String:
+	if ms < 0:
+		ms = 0
+	var total_seconds: int = ms / 1000
+	var minutes: int = total_seconds / 60
+	var seconds: int = total_seconds % 60
+	return "%02d:%02d" % [minutes, seconds]
+
+
+func _update_clock_display() -> void:
+	if not clock:
+		return
+	var now: int = Time.get_ticks_msec()
+	var running: int = clock.running_player
+	for p in 2:
+		var time_left: int = clock.time_left(p, now)
+		var text := _format_ms(time_left)
+		var label := opp_clock_label if p == 1 else my_clock_label
+		label.text = text
+		# Highlight active player's clock
+		if p == running:
+			label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
+		else:
+			label.add_theme_color_override("font_color", Color(0.97, 0.95, 0.88, 1))
+
+
+func _check_clock_flag() -> void:
+	if not clock:
+		return
+	var now: int = Time.get_ticks_msec()
+	var flagged: int = clock.flagged_player(now)
+	if flagged != -1:
+		# End game: other player wins
+		game.winner = 2 - flagged
+		game.over_limit_player = flagged
+		game.log_event("Player %d flagged: Player %d wins on time" % [flagged + 1, 2 - flagged])
+		_check_game_over()
+
+
+func _send_ping() -> void:
+	# Local games: no network ping, lag credit is always 0.
+	pass
+
+
+func _start_turn_clock(player: int) -> void:
+	if clock:
+		clock.start(player, Time.get_ticks_msec())
+
+
+func _stop_turn_clock(_player: int) -> void:
+	if clock:
+		clock.stop(Time.get_ticks_msec(), 0)
 
 
 func _check_jump_state() -> void:
@@ -613,6 +395,7 @@ func _do_accept_skip() -> void:
 	_cancel_jump_flow()
 	if game.current_player != 0 or game.pending_jump_rank == 0 or game.is_game_over() != 0:
 		return
+	_stop_turn_clock(0)
 	if not game.accept_jump(0):
 		return
 	_show_deal()
@@ -624,6 +407,10 @@ func _do_accept_skip() -> void:
 
 func _on_niko_kadi_toggled() -> void:
 	if not input_enabled or not _can_show_niko_kadi():
+		return
+	if game.hands[0].size() == 1:
+		game.declare_now(0)
+		_update_ui_state()
 		return
 	is_niko_kadi_declared = not is_niko_kadi_declared
 	_update_niko_kadi_button_style()
@@ -661,6 +448,7 @@ func _on_suit_chosen(suit: int) -> void:
 	var declare: bool = is_suit_picker_niko
 	if declare:
 		assert(game.hands[0].size() == 1, "Suit-picker declaration requires exactly one card")
+	_stop_turn_clock(0)
 	if not game.choose_suit(0, suit, declare):
 		return
 	is_suit_picker_niko = false
@@ -685,6 +473,14 @@ func _input(event: InputEvent) -> void:
 		log_toggle_button.text = "Hide Log" if sys_log_panel.visible else "Sys Log"
 		return
 
+	if bot_button.get_global_rect().has_point(click_pos):
+		_on_bot_difficulty_toggled()
+		return
+
+	if lobby_button != null and lobby_button.get_global_rect().has_point(click_pos):
+		exit_to_dashboard_requested.emit()
+		return
+
 	if sys_log_panel.visible:
 		if log_copy_button.get_global_rect().has_point(click_pos):
 			DisplayServer.clipboard_set("\n".join(PackedStringArray(game.log_entries)))
@@ -692,6 +488,10 @@ func _input(event: InputEvent) -> void:
 			return
 		if sys_log_panel.get_global_rect().has_point(click_pos):
 			return  # don't let clicks on the log reach cards underneath
+
+	if _late_declare_open and niko_kadi_button.get_global_rect().has_point(click_pos):
+		_take_late_declaration()
+		return
 
 	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0:
 		return
@@ -723,8 +523,8 @@ func _input(event: InputEvent) -> void:
 			_on_card_clicked(cv.card)
 			return
 
-	var draw_rect := Rect2(draw_pile_view.position - CARD_SIZE / 2.0, CARD_SIZE)
-	if draw_rect.has_point(click_pos):
+	var pile_rect := Rect2(draw_pile_view.position - CARD_SIZE / 2.0, CARD_SIZE)
+	if pile_rect.has_point(click_pos):
 		_on_draw_pile_clicked()
 		return
 
@@ -790,14 +590,49 @@ func _update_turn_label() -> void:
 	else:
 		turn_label.text = "Opponent's turn"
 
+func _offer_late_declaration() -> void:
+	var eligible: bool = game.hands[0].size() == 1 and game.hands[0][0].is_plain() and not game.declared[0]
+	if not eligible:
+		return
+	_late_declare_open = true
+	is_niko_kadi_declared = false
+	_update_niko_kadi_button_style()
+	niko_kadi_button.text = "NIKO KADI!"
+	niko_kadi_button.visible = true
+	niko_kadi_hint.text = "Tap now, before the opponent plays"
+	niko_kadi_hint.visible = true
+	var deadline := Time.get_ticks_msec() + 2500
+	while _late_declare_open and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+	_late_declare_open = false
+	niko_kadi_button.visible = false
+	niko_kadi_hint.visible = false
+
+
+func _take_late_declaration() -> void:
+	game.declare_late(0)
+	_late_declare_open = false
+
+
 func _maybe_start_bot() -> void:
 	if game.current_player == 1 and input_enabled and game.is_game_over() == 0:
+		_start_turn_clock(1)
+		await _offer_late_declaration()
 		_opp_had_penalty = (game.pending_penalty > 0)
-		var bot = SIMPLE_BOT.new()
+		var bot := _make_bot()
 		await bot.take_turn(game, get_tree(), _on_bot_step)
+		_stop_turn_clock(1)
 		_on_bot_step()
 		if game.current_player == 0:
+			_start_turn_clock(0)
 			_check_jump_state()
+
+func _make_bot() -> SimpleBot:
+	if use_smart_bot:
+		return SMART_BOT.new()
+	var bot := SIMPLE_BOT.new()
+	bot.mistake_rate = EASY_MISTAKE_RATE
+	return bot
 
 func _on_bot_step() -> void:
 	var current_top = game.top_card()
@@ -860,6 +695,7 @@ func _start_answer_countdown() -> void:
 			_update_suit_indicator()
 			_update_ui_state()
 			_check_game_over()
+			_stop_turn_clock(0)
 			_maybe_start_bot()
 		return
 		
@@ -883,6 +719,7 @@ func _start_answer_countdown() -> void:
 		_update_suit_indicator()
 		_update_ui_state()
 		_check_game_over()
+		_stop_turn_clock(0)
 		_maybe_start_bot()
 
 func _on_card_clicked(card: Card) -> bool:
@@ -974,12 +811,14 @@ func _commit_cards(cards: Array[Card]) -> bool:
 		if lead_card.rank == 14 and had_penalty and not game.awaiting_suit_choice:
 			_show_notice("Ace blocked the penalty")
 			if game.current_player == 1:
+				_stop_turn_clock(0)
 				_maybe_start_bot()
 		elif game.awaiting_suit_choice and game.current_player == 0:
 			_show_suit_picker()
 		elif game.awaiting_answer and game.current_player == 0:
 			_start_answer_countdown()
 		elif game.current_player == 1:
+			_stop_turn_clock(0)
 			_maybe_start_bot()
 		elif game.current_player == 0 and game.pending_jump_rank != 0:
 			_check_jump_state()
@@ -995,6 +834,7 @@ func _on_draw_pile_clicked() -> void:
 	staged_chain.clear()
 	_chain_timer_token += 1
 	_answer_timer_token += 1
+	_stop_turn_clock(0)
 	game.pick_up(0)
 	is_niko_kadi_declared = false
 	_update_niko_kadi_button_style()
@@ -1032,6 +872,8 @@ func _check_game_over() -> void:
 	var result := game.is_game_over()
 	if result == 0:
 		return
+	if clock:
+		clock.stop(Time.get_ticks_msec(), 0)
 	game.log_event("GAME OVER: %s won!" % ("You" if result == 1 else "Opp"))
 	_game_over_shown = true
 	_game_over_result = result
@@ -1045,6 +887,9 @@ func _check_game_over() -> void:
 	await get_tree().create_timer(1.5).timeout
 	game_over_label.text = _game_over_text(result)
 	game_over_label.visible = true
+	if lobby_button != null:
+		lobby_button.text = "Continue"
+	match_finished.emit(result == 1)
 	_update_declaration_banner()
 
 
@@ -1128,6 +973,8 @@ func _collect_combinations(cards: Array, start: int, take: int,
 func _can_show_niko_kadi() -> bool:
 	if game.current_player != 0 or game.awaiting_suit_choice or game.is_game_over() != 0:
 		return false
+	if game.hands[0].size() == 1:
+		return game.hands[0][0].is_plain() and not game.declared[0] and not game.awaiting_answer and not game.awaiting_call
 	if staged_chain.is_empty():
 		return _has_declaration_play()
 	# Keep the toggle visible and armed through the whole chain: as long as this

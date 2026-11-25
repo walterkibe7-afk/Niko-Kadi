@@ -1,0 +1,117 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/card_preview.gd" id="1_card_preview"]
+
+[sub_resource type="StyleBoxFlat" id="sb_card_face"]
+bg_color = Color(0.97, 0.95, 0.89, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.82, 0.67, 0.32, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 10
+shadow_offset = Vector2(0, 5)
+
+[sub_resource type="StyleBoxFlat" id="sb_card_back"]
+bg_color = Color(0.03, 0.18, 0.11, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.88, 0.72, 0.34, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 10
+shadow_offset = Vector2(0, 5)
+
+[node name="CardPreview" type="Control"]
+custom_minimum_size = Vector2(110, 158)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 132.0
+offset_bottom = 190.0
+script = ExtResource("1_card_preview")
+
+[node name="AspectRatioContainer" type="AspectRatioContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+ratio = 0.695
+
+[node name="CardRoot" type="Control" parent="AspectRatioContainer"]
+layout_mode = 2
+
+[node name="FacePanel" type="PanelContainer" parent="AspectRatioContainer/CardRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("sb_card_face")
+
+[node name="MarginContainer" type="MarginContainer" parent="AspectRatioContainer/CardRoot/FacePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="VBoxContainer" type="VBoxContainer" parent="AspectRatioContainer/CardRoot/FacePanel/MarginContainer"]
+layout_mode = 2
+
+[node name="TopRank" type="Label" parent="AspectRatioContainer/CardRoot/FacePanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "A
+♠"
+
+[node name="CenterSuit" type="Label" parent="AspectRatioContainer/CardRoot/FacePanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 44
+text = "♠"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BottomRank" type="Label" parent="AspectRatioContainer/CardRoot/FacePanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "♠
+A"
+horizontal_alignment = 2
+
+[node name="BackPanel" type="PanelContainer" parent="AspectRatioContainer/CardRoot"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("sb_card_back")
+
+[node name="BackTexture" type="TextureRect" parent="AspectRatioContainer/CardRoot/BackPanel"]
+visible = false
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BackEmblem" type="Label" parent="AspectRatioContainer/CardRoot/BackPanel"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.78, 0.32, 0.9)
+theme_override_font_sizes/font_size = 24
+text = "KADI"
+horizontal_alignment = 1
+vertical_alignment = 1

@@ -1,3 +1,173 @@
 Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
-Vulkan 1.3.260 - Forward Mobile - Using Device #0: AMD - AMD Radeon(TM) Graphics
 
+[SYS] [01] Game started | Starter: 9♦ | Suit: ♦ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 2♥ (penalty stack=2, hand=1)
+[SYS] [03] Opp played 3♥ (penalty stack=5, hand=1)
+[SYS] [04] You picked up 5 (penalty) -> hand=6
+PASS: 2 then 3 stacking and picking up the total
+[SYS] [01] Game started | Starter: 10♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 2♥ (penalty stack=2, hand=1)
+[SYS] [03] Opp played A♥ (blocked penalty, suit stays ♥, hand=1)
+PASS: Ace blocking a stack
+[SYS] [01] Game started | Starter: 6♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played J♥ (jump pending, hand=1)
+[SYS] [03] Opp played J♣ (jump pending, hand=1)
+[SYS] [04] You accepted skip -> Opp plays again
+PASS: J countered by J, and accepted
+[SYS] [01] Game started | Starter: 5♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played Q♦ (awaiting ♦ answer, hand=2)
+[SYS] [03] You played 5♦ (hand=1)
+PASS: Q played then answered with the same suit
+[SYS] [01] Game started | Starter: 9♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played Q♦ (awaiting ♦ answer, hand=1)
+[SYS] [03] You picked up 1 (unanswered Q/8) -> hand=2
+PASS: Q then pick up
+[SYS] [01] Game started | Starter: 4♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 6♥ (hand=1)
+[SYS] [03] You declared NIKO KADI! (1 card left)
+[SYS] [04] Opp picked up 1 (draw) -> hand=3
+[SYS] [05] You's Niko Kadi unlocked!
+[SYS] [06] You played 4♥ (hand=0)
+PASS: declaring with 2 cards, the last card staying locked until the opponent takes a turn, then winning on a plain card
+[SYS] [01] Game started | Starter: 5♣ | Suit: ♣ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played J♥ (jump pending, hand=1)
+[SYS] [03] You declared NIKO KADI! (1 card left)
+[SYS] [04] Opp accepted skip -> You plays again
+PASS: J + 7 test checked
+[SYS] [01] Game started | Starter: 10♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 2♥ (penalty stack=2, hand=0)
+[SYS] [03] You is out of cards without winning
+[SYS] [01] Game started | Starter: 7♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 3♥ (penalty stack=3, hand=0)
+[SYS] [03] You is out of cards without winning
+[SYS] [01] Game started | Starter: 9♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 8♥ (awaiting ♥ answer, hand=0)
+[SYS] [03] You is out of cards without winning
+[SYS] [01] Game started | Starter: 5♣ | Suit: ♣ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played J♥ (jump pending, hand=0)
+[SYS] [03] You is out of cards without winning
+[SYS] [01] Game started | Starter: 5♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played Q♥ (awaiting ♥ answer, hand=0)
+[SYS] [03] You is out of cards without winning
+[SYS] [01] Game started | Starter: 10♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played K♥ (jump pending, hand=0)
+[SYS] [03] You is out of cards without winning
+PASS: special last cards empty the hand but never win or draw
+[SYS] [01] Game started | Starter: 10♣ | Suit: ♣ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 2♥ (penalty stack=2, hand=1)
+[SYS] [03] Opp played A♣ (blocked penalty, suit stays ♥, hand=1)
+PASS: an Ace on a pending 2 clears the penalty, doesn't set awaiting_suit_choice, and passes the turn
+[SYS] [01] Game started | Starter: 6♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played A♥ (choosing suit, hand=1)
+PASS: an Ace on no penalty sets awaiting_suit_choice
+[SYS] [01] Game started | Starter: 5♣ | Suit: ♣ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 2♥ (penalty stack=2, hand=1)
+[SYS] [03] Opp played A♥ (blocked penalty, suit stays ♥, hand=0)
+[SYS] [04] Opp is out of cards without winning
+PASS: a lone Ace on a pending penalty leaves 0 cards, no win and no forced draw
+[SYS] [01] Game started | Starter: 9♦ | Suit: ♦ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played J♦ (jump pending, hand=1)
+[SYS] [03] You declared NIKO KADI! (1 card left)
+[SYS] [04] Opp accepted skip -> You plays again
+[SYS] [05] You played 4♦ (hand=0)
+PASS: J + 4 with declare = true allows 4 to be played and wins
+[SYS] [01] Game started | Starter: 9♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played J♦ (jump pending, hand=1)
+[SYS] [03] Opp accepted skip -> You plays again
+[SYS] [04] You played 4♦ (hand=0)
+[SYS] [05] You is out of cards without winning
+PASS: J + 4 with declare = false leaves 4 playable but playing it does not win
+[SYS] [01] Game started | Starter: 6♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played J♠ (jump pending, hand=1)
+[SYS] [03] You declared NIKO KADI! (1 card left)
+[SYS] [04] Opp played J♣ (jump pending, hand=1)
+[SYS] [05] You accepted skip -> Opp plays again
+PASS: bot counters J with J, player gets chance to counter or accept
+[SYS] [01] Game started | Starter: 5♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played A♠ (choosing suit, hand=0)
+[SYS] [03] You is out of cards without winning
+[SYS] [04] You chose suit ♦
+PASS: lone Ace plays, chooses suit, leaves 0 cards, no win and no forced draw
+[SYS] [01] Game started | Starter: 5♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played Q♥ (awaiting ♥ answer, hand=3)
+[SYS] [03] You played 5♥, 5♦ (hand=1)
+PASS: a 5H + 5D chain answers a QH
+[SYS] [01] Game started | Starter: 10♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played Q♥ (awaiting ♥ answer, hand=3)
+[SYS] [03] You played 8♥ (awaiting ♥ answer, hand=2)
+[SYS] [04] You played 5♥ (hand=1)
+PASS: an 8H answer opens a new question and a 5H ends it
+[SYS] [01] Game started | Starter: 7♦ | Suit: ♦ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played Q♥, Q♦ (awaiting ♦ answer, hand=3)
+[SYS] [03] You played 6♦ (hand=2)
+PASS: a QH+QD chain opens a Diamonds-only question
+[SYS] [01] Game started | Starter: 9♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played Q♥ (awaiting ♥ answer, hand=2)
+PASS: a wrong-suit card is rejected as an answer
+[SYS] [01] Game started | Starter: 9♣ | Suit: ♣ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played Q♥ (awaiting ♥ answer, hand=2)
+[SYS] [03] You played A♦ (choosing suit, hand=1)
+PASS: an Ace of another suit is accepted as an answer
+[SYS] [01] Game started | Starter: 7♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played Q♥ (awaiting ♥ answer, hand=2)
+[SYS] [03] You played 2♥ (penalty stack=2, hand=1)
+PASS: a 2H answer leaves the opponent facing a pending penalty of 2
+[SYS] [01] Game started | Starter: 6♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 3♠ (penalty stack=5, hand=0)
+[SYS] [03] You is out of cards without winning
+PASS: lone 3S on a penalty leaves 0 cards, no winner, no draw
+[SYS] [01] Game started | Starter: 6♣ | Suit: ♣ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 4♠ (hand=0)
+PASS: lone plain last card with declare+unlock wins
+[SYS] [01] Game started | Starter: 7♦ | Suit: ♦ | Hand sizes: You=4, Opp=4
+[SYS] [02] You declared NIKO KADI! (1 card left)
+[SYS] [03] You played 4♠ (hand=0)
+PASS: declare_now declares, unlocks, and allows last card to win
+[SYS] [01] Game started | Starter: 10♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 4♠ (hand=0)
+[SYS] [03] You is out of cards without winning
+PASS: plain last card cannot win when opponent has 0 cards
+[SYS] [01] Game started | Starter: 4♦ | Suit: ♦ | Hand sizes: You=4, Opp=4
+[SYS] [02] You picked up 1 (draw) -> hand=1
+PASS: player with 0 cards has no legal move and pick_up gives 1 card
+[SYS] [01] Game started | Starter: 10♦ | Suit: ♦ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played Q♠ (awaiting ♠ answer, hand=0)
+[SYS] [03] You is out of cards without winning
+[SYS] [04] You picked up 1 (unanswered Q/8) -> hand=1
+PASS: lone Q leaves awaiting_answer true and pick_up ends the turn
+[SYS] [01] Game started | Starter: 4♠ | Suit: ♠ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played J♠ (jump pending, hand=0)
+[SYS] [03] You is out of cards without winning
+[SYS] [04] Opp accepted skip -> You plays again
+[SYS] [05] You picked up 1 (draw) -> hand=1
+PASS: lone J, opponent accepts, jumper at 0 cards picks up
+[SYS] [01] Game started | Starter: 10♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 2♠ (penalty stack=2, hand=0)
+[SYS] [03] You is out of cards without winning
+PASS: is_game_over stays 0 after an empty hand caused by a special card
+[SYS] [01] Game started | Starter: 6♦ | Suit: ♦ | Hand sizes: You=4, Opp=4
+[SYS] [02] You picked up 1 (draw) -> hand=11
+[SYS] [03] You went over 10 cards: Opp wins
+PASS: player at 10 cards picks up 1 and loses
+[SYS] [01] Game started | Starter: 4♦ | Suit: ♦ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 5♠ (hand=9)
+[SYS] [01] Game started | Starter: 9♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You played 5♠ (hand=10)
+PASS: a player at 10 (or 11) who plays a card and stays at 9 or 10 does not lose
+[SYS] [01] Game started | Starter: 5♣ | Suit: ♣ | Hand sizes: You=4, Opp=4
+[SYS] [02] You picked up 3 (penalty) -> hand=11
+[SYS] [03] You went over 10 cards: Opp wins
+PASS: penalty stack taking a player from 8 to 11 loses
+[SYS] [01] Game started | Starter: 5♦ | Suit: ♦ | Hand sizes: You=4, Opp=4
+[SYS] [02] Opp played A♥ (blocked penalty, suit stays ♠, hand=0)
+[SYS] [03] Opp is out of cards without winning
+PASS: Ace block at 8 with a pending stack of 3 avoids the hand-limit loss
+[SYS] [01] Game started | Starter: 6♥ | Suit: ♥ | Hand sizes: You=4, Opp=4
+[SYS] [02] You picked up 1 (draw) -> hand=10
+PASS: picking up exactly to 10 does not lose
+[SYS] [01] Game started | Starter: 5♦ | Suit: ♦ | Hand sizes: You=4, Opp=4
+[SYS] [02] Opp picked up 1 (draw) -> hand=11
+[SYS] [03] Opp went over 10 cards: You wins
+PASS: opponent over the limit makes me the winner
+
+ALL RULE TESTS PASSED

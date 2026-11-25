@@ -1,0 +1,426 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/dashboard.gd" id="1_dashboard_gd"]
+[ext_resource type="Texture2D" path="res://assets/table/felt.png" id="2_felt"]
+[ext_resource type="PackedScene" path="res://scenes/ui/card_preview.tscn" id="3_card_preview"]
+
+[sub_resource type="StyleBoxFlat" id="sb_pill_btn_n"]
+bg_color = Color(0.02, 0.1, 0.06, 0.85)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.85, 0.7, 0.35, 0.6)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+content_margin_left = 18.0
+content_margin_top = 8.0
+content_margin_right = 18.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxFlat" id="sb_pill_btn_h"]
+bg_color = Color(0.06, 0.18, 0.11, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.95, 0.8, 0.45, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+content_margin_left = 18.0
+content_margin_top = 8.0
+content_margin_right = 18.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxFlat" id="sb_coins_panel"]
+bg_color = Color(0.05, 0.15, 0.09, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.93, 0.78, 0.32, 0.75)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+
+[sub_resource type="StyleBoxFlat" id="sb_panel_gold_n"]
+bg_color = Color(0.02, 0.09, 0.06, 0.88)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.7, 0.35, 0.58)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+shadow_color = Color(0, 0, 0, 0.4)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="sb_panel_gold_h"]
+bg_color = Color(0.04, 0.14, 0.09, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.95, 0.8, 0.42, 0.95)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 12
+
+[sub_resource type="StyleBoxFlat" id="sb_bar_bg"]
+bg_color = Color(0.01, 0.04, 0.03, 0.9)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="sb_bar_fill"]
+bg_color = Color(0.93, 0.78, 0.32, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="sb_stage"]
+bg_color = Color(0.02, 0.09, 0.06, 0.88)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.7, 0.35, 0.72)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 16
+shadow_offset = Vector2(0, 6)
+
+[sub_resource type="StyleBoxFlat" id="sb_play_n"]
+bg_color = Color(0.93, 0.78, 0.32, 1)
+corner_radius_top_left = 28
+corner_radius_top_right = 28
+corner_radius_bottom_right = 28
+corner_radius_bottom_left = 28
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="sb_play_h"]
+bg_color = Color(0.98, 0.87, 0.48, 1)
+corner_radius_top_left = 28
+corner_radius_top_right = 28
+corner_radius_bottom_right = 28
+corner_radius_bottom_left = 28
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 12
+
+[sub_resource type="StyleBoxFlat" id="sb_play_p"]
+bg_color = Color(0.8, 0.65, 0.24, 1)
+corner_radius_top_left = 28
+corner_radius_top_right = 28
+corner_radius_bottom_right = 28
+corner_radius_bottom_left = 28
+
+[sub_resource type="StyleBoxFlat" id="sb_dock_n"]
+bg_color = Color(0.03, 0.12, 0.07, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.85, 0.7, 0.35, 0.55)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[node name="Dashboard" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_dashboard_gd")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_felt")
+expand_mode = 1
+stretch_mode = 6
+mouse_filter = 2
+
+[node name="Vignette" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.01, 0.05, 0.03, 0.58)
+mouse_filter = 2
+
+[node name="SafeMargin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 32
+
+[node name="MainVBox" type="VBoxContainer" parent="SafeMargin"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="TopBar" type="HBoxContainer" parent="SafeMargin/MainVBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ProfileButton" type="Button" parent="SafeMargin/MainVBox/TopBar"]
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.97, 0.95, 0.88, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("sb_pill_btn_n")
+theme_override_styles/hover = SubResource("sb_pill_btn_h")
+text = "Player"
+
+[node name="HelpButton" type="Button" parent="SafeMargin/MainVBox/TopBar"]
+custom_minimum_size = Vector2(46, 0)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.93, 0.78, 0.32, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("sb_pill_btn_n")
+theme_override_styles/hover = SubResource("sb_pill_btn_h")
+text = "?"
+
+[node name="Spacer" type="Control" parent="SafeMargin/MainVBox/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CoinsPanel" type="PanelContainer" parent="SafeMargin/MainVBox/TopBar"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("sb_coins_panel")
+
+[node name="CoinsMargin" type="MarginContainer" parent="SafeMargin/MainVBox/TopBar/CoinsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 8
+
+[node name="CoinsLabel" type="Label" parent="SafeMargin/MainVBox/TopBar/CoinsPanel/CoinsMargin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.86, 0.45, 1)
+theme_override_font_sizes/font_size = 18
+text = "250 Coins"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PassBanner" type="Button" parent="SafeMargin/MainVBox"]
+custom_minimum_size = Vector2(0, 114)
+layout_mode = 2
+focus_mode = 0
+theme_override_styles/normal = SubResource("sb_panel_gold_n")
+theme_override_styles/hover = SubResource("sb_panel_gold_h")
+theme_override_styles/pressed = SubResource("sb_panel_gold_n")
+
+[node name="PassContent" type="MarginContainer" parent="SafeMargin/MainVBox/PassBanner"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 14
+
+[node name="PassVBox" type="VBoxContainer" parent="SafeMargin/MainVBox/PassBanner/PassContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="PassTopRow" type="HBoxContainer" parent="SafeMargin/MainVBox/PassBanner/PassContent/PassVBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="PassTitle" type="Label" parent="SafeMargin/MainVBox/PassBanner/PassContent/PassVBox/PassTopRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.97, 0.95, 0.88, 1)
+theme_override_font_sizes/font_size = 19
+text = "Season 1 • Emerald Pass"
+
+[node name="PassTierLabel" type="Label" parent="SafeMargin/MainVBox/PassBanner/PassContent/PassVBox/PassTopRow"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.93, 0.78, 0.32, 1)
+theme_override_font_sizes/font_size = 18
+text = "Tier 1"
+
+[node name="PassProgressBar" type="ProgressBar" parent="SafeMargin/MainVBox/PassBanner/PassContent/PassVBox"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/background = SubResource("sb_bar_bg")
+theme_override_styles/fill = SubResource("sb_bar_fill")
+show_percentage = false
+
+[node name="PassSubLabel" type="Label" parent="SafeMargin/MainVBox/PassBanner/PassContent/PassVBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.78, 0.83, 0.78, 0.9)
+theme_override_font_sizes/font_size = 14
+text = "0 / 100 XP to next reward"
+
+[node name="CenterStage" type="PanelContainer" parent="SafeMargin/MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("sb_stage")
+
+[node name="StageMargin" type="MarginContainer" parent="SafeMargin/MainVBox/CenterStage"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 28
+
+[node name="StageVBox" type="VBoxContainer" parent="SafeMargin/MainVBox/CenterStage/StageMargin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="ArenaHeaderRow" type="HBoxContainer" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox"]
+layout_mode = 2
+
+[node name="ArenaBadge" type="Label" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox/ArenaHeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.78, 0.32, 1)
+theme_override_font_sizes/font_size = 14
+text = "ACTIVE ARENA"
+vertical_alignment = 1
+
+[node name="Spacer" type="Control" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox/ArenaHeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BotToggleButton" type="Button" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox/ArenaHeaderRow"]
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.95, 0.93, 0.85, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("sb_pill_btn_n")
+theme_override_styles/hover = SubResource("sb_pill_btn_h")
+text = "Bot: Hard"
+
+[node name="ArenaTitle" type="Label" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.95, 0.88, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.65)
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 38
+text = "Emerald Lounge"
+horizontal_alignment = 1
+
+[node name="DeckShowcase" type="HBoxContainer" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="LeftCard" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox/DeckShowcase" instance=ExtResource("3_card_preview")]
+layout_mode = 2
+size_flags_vertical = 4
+rank_text = "K"
+suit_symbol = "♥"
+is_red_suit = true
+
+[node name="CenterCard" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox/DeckShowcase" instance=ExtResource("3_card_preview")]
+custom_minimum_size = Vector2(138, 198)
+layout_mode = 2
+size_flags_vertical = 4
+rank_text = "A"
+suit_symbol = "♠"
+show_back = true
+
+[node name="RightCard" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox/DeckShowcase" instance=ExtResource("3_card_preview")]
+layout_mode = 2
+size_flags_vertical = 4
+rank_text = "J"
+suit_symbol = "♦"
+is_red_suit = true
+
+[node name="DeckNameLabel" type="Label" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.84, 0.88, 0.82, 0.9)
+theme_override_font_sizes/font_size = 17
+text = "Deck: Royal Emerald"
+horizontal_alignment = 1
+
+[node name="PlayButton" type="Button" parent="SafeMargin/MainVBox/CenterStage/StageMargin/StageVBox"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.1, 0.08, 0.03, 1)
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = SubResource("sb_play_n")
+theme_override_styles/hover = SubResource("sb_play_h")
+theme_override_styles/pressed = SubResource("sb_play_p")
+text = "PLAY KADI"
+
+[node name="BottomDock" type="HBoxContainer" parent="SafeMargin/MainVBox"]
+custom_minimum_size = Vector2(0, 76)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="ArenasButton" type="Button" parent="SafeMargin/MainVBox/BottomDock"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_override_colors/font_color = Color(0.95, 0.93, 0.85, 1)
+theme_override_font_sizes/font_size = 19
+theme_override_styles/normal = SubResource("sb_dock_n")
+theme_override_styles/hover = SubResource("sb_pill_btn_h")
+text = "Arenas"
+
+[node name="CollectionButton" type="Button" parent="SafeMargin/MainVBox/BottomDock"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_override_colors/font_color = Color(0.95, 0.93, 0.85, 1)
+theme_override_font_sizes/font_size = 19
+theme_override_styles/normal = SubResource("sb_dock_n")
+theme_override_styles/hover = SubResource("sb_pill_btn_h")
+text = "Collection"
+
+[node name="PassButton" type="Button" parent="SafeMargin/MainVBox/BottomDock"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_override_colors/font_color = Color(0.95, 0.93, 0.85, 1)
+theme_override_font_sizes/font_size = 19
+theme_override_styles/normal = SubResource("sb_dock_n")
+theme_override_styles/hover = SubResource("sb_pill_btn_h")
+text = "Game Pass"

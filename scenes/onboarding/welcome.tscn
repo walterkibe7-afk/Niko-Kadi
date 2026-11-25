@@ -1,0 +1,237 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/welcome.gd" id="1_welcome_gd"]
+[ext_resource type="Texture2D" path="res://assets/table/felt.png" id="2_felt"]
+[ext_resource type="PackedScene" path="res://scenes/ui/card_preview.tscn" id="3_card_preview"]
+
+[sub_resource type="StyleBoxFlat" id="sb_welcome_card"]
+bg_color = Color(0.02, 0.09, 0.06, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.7, 0.35, 0.7)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0, 0, 0, 0.55)
+shadow_size = 18
+shadow_offset = Vector2(0, 8)
+
+[sub_resource type="StyleBoxFlat" id="sb_badge"]
+bg_color = Color(0.05, 0.2, 0.13, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.85, 0.7, 0.35, 0.65)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+content_margin_left = 14.0
+content_margin_top = 6.0
+content_margin_right = 14.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="sb_input"]
+bg_color = Color(0.03, 0.06, 0.05, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.85, 0.7, 0.35, 0.5)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+content_margin_left = 16.0
+content_margin_top = 12.0
+content_margin_right = 16.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="sb_cta_n"]
+bg_color = Color(0.93, 0.78, 0.32, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="sb_cta_h"]
+bg_color = Color(0.98, 0.87, 0.48, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="sb_cta_p"]
+bg_color = Color(0.8, 0.65, 0.24, 1)
+corner_radius_top_left = 26
+corner_radius_top_right = 26
+corner_radius_bottom_right = 26
+corner_radius_bottom_left = 26
+
+[sub_resource type="StyleBoxEmpty" id="sb_skip_empty"]
+
+[node name="Welcome" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_welcome_gd")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_felt")
+expand_mode = 1
+stretch_mode = 6
+mouse_filter = 2
+
+[node name="Vignette" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.01, 0.04, 0.03, 0.56)
+mouse_filter = 2
+
+[node name="SafeMargin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 48
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 48
+
+[node name="CenterStack" type="CenterContainer" parent="SafeMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="WelcomeCard" type="PanelContainer" parent="SafeMargin/CenterStack"]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("sb_welcome_card")
+
+[node name="CardMargin" type="MarginContainer" parent="SafeMargin/CenterStack/WelcomeCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 40
+theme_override_constants/margin_right = 36
+theme_override_constants/margin_bottom = 32
+
+[node name="CardVBox" type="VBoxContainer" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="StarterBadge" type="PanelContainer" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/panel = SubResource("sb_badge")
+
+[node name="BadgeLabel" type="Label" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox/StarterBadge"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.78, 0.32, 1)
+theme_override_font_sizes/font_size = 15
+text = "ROYAL EMERALD EDITION"
+horizontal_alignment = 1
+
+[node name="TitleLabel" type="Label" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.95, 0.88, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 46
+text = "Welcome to Kadi"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.84, 0.87, 0.82, 0.9)
+theme_override_font_sizes/font_size = 20
+text = "Master the table, call Niko Kadi at the perfect moment, and unlock rare decks & arenas."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ShowcaseRow" type="HBoxContainer" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox"]
+custom_minimum_size = Vector2(0, 210)
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="LeftCard" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox/ShowcaseRow" instance=ExtResource("3_card_preview")]
+layout_mode = 2
+rank_text = "K"
+suit_symbol = "♦"
+is_red_suit = true
+
+[node name="CenterCard" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox/ShowcaseRow" instance=ExtResource("3_card_preview")]
+custom_minimum_size = Vector2(130, 186)
+layout_mode = 2
+rank_text = "A"
+suit_symbol = "♠"
+show_back = true
+
+[node name="RightCard" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox/ShowcaseRow" instance=ExtResource("3_card_preview")]
+layout_mode = 2
+rank_text = "J"
+suit_symbol = "♥"
+is_red_suit = true
+
+[node name="PromptLabel" type="Label" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.91, 0.85, 0.9)
+theme_override_font_sizes/font_size = 17
+text = "Choose your table name"
+horizontal_alignment = 1
+
+[node name="NameInput" type="LineEdit" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.95, 0.88, 1)
+theme_override_colors/font_placeholder_color = Color(0.62, 0.68, 0.62, 0.75)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("sb_input")
+placeholder_text = "Enter player name..."
+alignment = 1
+max_length = 18
+
+[node name="EnterButton" type="Button" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox"]
+custom_minimum_size = Vector2(0, 62)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.1, 0.08, 0.03, 1)
+theme_override_font_sizes/font_size = 22
+theme_override_styles/normal = SubResource("sb_cta_n")
+theme_override_styles/hover = SubResource("sb_cta_h")
+theme_override_styles/pressed = SubResource("sb_cta_p")
+text = "Enter Lounge  (+250 Coins)"
+
+[node name="SkipButton" type="Button" parent="SafeMargin/CenterStack/WelcomeCard/CardMargin/CardVBox"]
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.8, 0.82, 0.78, 0.75)
+theme_override_colors/font_hover_color = Color(0.95, 0.85, 0.48, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("sb_skip_empty")
+theme_override_styles/hover = SubResource("sb_skip_empty")
+theme_override_styles/pressed = SubResource("sb_skip_empty")
+text = "Skip for now"

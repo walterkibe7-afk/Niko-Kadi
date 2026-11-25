@@ -34,6 +34,7 @@ func _init() -> void:
 	# Last-card finish rule tests
 	all_passed = test_lone_three_on_penalty_no_win() and all_passed
 	all_passed = test_lone_plain_declared_wins() and all_passed
+	all_passed = test_declare_now_unlocks_and_wins() and all_passed
 	all_passed = test_plain_last_card_locked_without_opponent() and all_passed
 	all_passed = test_empty_hand_no_legal_move_pickup() and all_passed
 	all_passed = test_lone_queen_pickup_ends_turn() and all_passed
@@ -239,8 +240,8 @@ func test_declaration_lock_and_win() -> bool:
 		return false
 		
 	game.current_player = 0
-	if game.can_play(c2):
-		print("FAIL: test_declaration_lock_and_win (c2 should be locked)")
+	if game.can_win_with_last_card(0):
+		print("FAIL: test_declaration_lock_and_win (cannot win before opponent takes a turn)")
 		return false
 	game.current_player = 1
 	
@@ -466,20 +467,18 @@ func test_jump_finish_without_declare() -> bool:
 	if game.current_player != 0:
 		print("FAIL: test_jump_finish_without_declare (current_player)")
 		return false
-	if game.unlocked[0]:
-		print("FAIL: test_jump_finish_without_declare (unlocked should be false)")
+	if game.unlocked[0] or game.can_win_with_last_card(0):
+		print("FAIL: test_jump_finish_without_declare (should not be able to win without declare)")
 		return false
-	if game.can_play(c4):
-		print("FAIL: test_jump_finish_without_declare (c4 should be locked)")
+	# Under new rules, plain card can be played but doesn't win (or player can declare_now)
+	if not game.can_play(c4):
+		print("FAIL: test_jump_finish_without_declare (c4 is playable)")
 		return false
-		
-	var size_before := game.hands[0].size()
-	game.pick_up(0)
-	if game.hands[0].size() != size_before + 1 or game.current_player != 1:
-		print("FAIL: test_jump_finish_without_declare (pickup)")
+	game.play_card(0, c4, false)
+	if game.is_game_over() != 0 or not game.hands[0].is_empty():
+		print("FAIL: test_jump_finish_without_declare (playing without declare ends with 0 cards and no win)")
 		return false
-		
-	print("PASS: J + 4 with declare = false leaves 4 locked, player can only pick up")
+	print("PASS: J + 4 with declare = false leaves 4 playable but playing it does not win")
 	return true
 
 func test_bot_counters_jump() -> bool:
@@ -805,6 +804,36 @@ func test_lone_plain_declared_wins() -> bool:
 	return true
 
 
+func test_declare_now_unlocks_and_wins() -> bool:
+	var game := GameState.new()
+	game.start_game()
+	game.discard_pile = [Card.new(5, 3)]
+	game.current_suit = 3
+	game.current_player = 0
+	var four := Card.new(4, 3)
+	game.hands[0] = [four]
+	game.hands[1] = [Card.new(9, 0)]
+	game.declared[0] = false
+	game.unlocked[0] = false
+
+	if game.can_win_with_last_card(0):
+		print("FAIL: test_declare_now_unlocks_and_wins (can_win before declare_now)")
+		return false
+	game.declare_now(0)
+	if not game.declared[0] or not game.unlocked[0] or not game.can_win_with_last_card(0):
+		print("FAIL: test_declare_now_unlocks_and_wins (state after declare_now)")
+		return false
+	if not game.play_card(0, four, false):
+		print("FAIL: test_declare_now_unlocks_and_wins (play four)")
+		return false
+	if game.winner != 1 or game.is_game_over() != 1:
+		print("FAIL: test_declare_now_unlocks_and_wins (winner check)")
+		return false
+
+	print("PASS: declare_now declares, unlocks, and allows last card to win")
+	return true
+
+
 func test_plain_last_card_locked_without_opponent() -> bool:
 	var game := GameState.new()
 	game.start_game()
@@ -817,14 +846,18 @@ func test_plain_last_card_locked_without_opponent() -> bool:
 	game.declared[0] = true
 	game.unlocked[0] = true
 
-	if game.can_play(four):
-		print("FAIL: test_plain_last_card_locked_without_opponent (4S should be locked)")
+	if game.can_win_with_last_card(0):
+		print("FAIL: test_plain_last_card_locked_without_opponent (can_win should be false when opponent has 0 cards)")
 		return false
-	if game.has_legal_move(0) or game.is_game_over() != 0:
-		print("FAIL: test_plain_last_card_locked_without_opponent (no legal move, game not over)")
+	if not game.can_play(four):
+		print("FAIL: test_plain_last_card_locked_without_opponent (card can be played)")
+		return false
+	game.play_card(0, four, false)
+	if game.is_game_over() != 0 or not game.hands[0].is_empty():
+		print("FAIL: test_plain_last_card_locked_without_opponent (playing card when opponent has 0 cards does not win)")
 		return false
 
-	print("PASS: plain last card locked when opponent has 0 cards")
+	print("PASS: plain last card cannot win when opponent has 0 cards")
 	return true
 
 
