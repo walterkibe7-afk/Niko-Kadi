@@ -31,6 +31,11 @@ var declared: Array[bool] = [false, false]  # declared on the play that left the
 var unlocked: Array[bool] = [false, false]  # opponent has since had a full turn
 var winner: int = 0  # 0 = none, 1 = you, 2 = opponent
 
+# --- Bot memory ---
+# Tracks how many cards each player picked up from each suit (hearts=0, diamonds=1, clubs=2, spades=3).
+# SmartBot uses this to avoid calling suits the opponent is likely weak in.
+var pickup_memory: Array = [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]]
+
 
 func start_game() -> void:
 	draw_pile = Deck.new()
@@ -277,8 +282,11 @@ func pick_up(player: int) -> void:
 		reason = "unanswered Q/8"
 	elif call_rank != 0:
 		reason = "called card"
+	# Record the suit being avoided (used by SmartBot._suit_scores)
+	var pickup_suit := current_suit
 	for i in count:
 		hands[player].append(_draw_card())
+	pickup_memory[player][pickup_suit] += 1.0
 	awaiting_answer = false
 	call_rank = 0
 	call_suit = -1
