@@ -5,13 +5,17 @@ signal match_finished(player_won: bool)
 signal exit_to_dashboard_requested
 
 const SCREEN_SIZE := Vector2(720, 1280)
-const MARGIN := 40.0
-const CARD_SIZE := Vector2(120, 168)
+const MARGIN := 24.0
+const CARD_SIZE := Vector2(112, 156)
+const OPP_HAND_Y := 236.0
+const MY_HAND_Y := 1056.0
+const DRAW_POS := Vector2(260.0, 540.0)
+const DISCARD_POS := Vector2(460.0, 540.0)
+
 const CARD_VIEW_SCENE := preload("res://scenes/card_view.tscn")
 const SIMPLE_BOT := preload("res://scripts/bot/simple_bot.gd")
 const SMART_BOT := preload("res://scripts/bot/smart_bot.gd")
 
-# The easy opponent plays by the old rules but slips this often.
 const EASY_MISTAKE_RATE := 0.25
 
 const SUIT_SYMBOLS := ["♥", "♦", "♣", "♠"]
@@ -25,37 +29,70 @@ const PLAYER_BANNER_TEXT := "YOU: NIKO KADI!"
 var game: GameState
 var clock: ChessClock = null
 
-# --- UI nodes: built in scenes/table.tscn (premium felt layout) ---
-@onready var turn_label: Label = $TurnLabel
-@onready var game_over_label: Label = $GameOverLabel
-@onready var notice_banner: Label = $NoticeBanner
+@onready var background: TextureRect = $Background
+@onready var background_layer: Node2D = $BackgroundLayer
+@onready var felt_texture: TextureRect = $BackgroundLayer/FeltTexture
+@onready var vignette: ColorRect = $BackgroundLayer/Vignette
+@onready var draw_pile_slot: Panel = $BackgroundLayer/DrawPileSlotBG
+@onready var discard_slot: Panel = $BackgroundLayer/DiscardSlotBG
+
+@onready var top_bar: Node2D = $TopBar
+@onready var lobby_button: Button = $TopBar/LobbyButton
+@onready var bot_button: Button = $TopBar/BotButton
+@onready var log_toggle_button: Button = $TopBar/LogToggleButton
+@onready var settings_button: Button = $TopBar/SettingsButton
+
+@onready var opp_area: Node2D = $OpponentArea
+@onready var opp_panel: Panel = $OpponentArea/OppPanel
+@onready var opp_avatar: Panel = $OpponentArea/OppPanel/OppAvatar
+@onready var opp_avatar_label: Label = $OpponentArea/OppPanel/OppAvatar/OppAvatarLabel
+@onready var opp_name_label: Label = $OpponentArea/OppPanel/OppNameLabel
+@onready var opp_count_label: Label = $OpponentArea/OppPanel/OppCountLabel
+@onready var opp_clock_label: Label = $OpponentArea/OppPanel/OppClockLabel
+@onready var opp_turn_indicator: Panel = $OpponentArea/OppPanel/OppTurnIndicator
+@onready var opp_penalty_badge: Label = $OpponentArea/OppPanel/OppPenaltyBadge
+
 @onready var opponent_banner: Panel = $OpponentBanner
 @onready var opponent_banner_label: Label = $OpponentBanner/Label
 @onready var player_banner: Panel = $PlayerBanner
 @onready var player_banner_label: Label = $PlayerBanner/Label
-@onready var suit_indicator_panel: Panel = $SuitChip
-@onready var suit_indicator_label: Label = $SuitChip/SuitLabel
+
+@onready var center_area: Node2D = $CenterArea
+@onready var notice_banner: Label = $CenterArea/NoticeBanner
+@onready var turn_label: Label = $CenterArea/TurnLabel
+@onready var suit_indicator_panel: Panel = $CenterArea/SuitChip
+@onready var suit_indicator_label: Label = $CenterArea/SuitChip/SuitLabel
+@onready var game_over_label: Label = $CenterArea/GameOverLabel
+@onready var jump_notice_panel: Panel = $CenterArea/JumpNoticePanel
+@onready var jump_notice_label: Label = $CenterArea/JumpNoticePanel/JumpLabel
+@onready var accept_skip_button: Button = $CenterArea/AcceptSkipButton
+
+@onready var my_area: Node2D = $MyArea
+@onready var my_panel: Panel = $MyArea/MyPanel
+@onready var my_avatar: Panel = $MyArea/MyPanel/MyAvatar
+@onready var my_avatar_label: Label = $MyArea/MyPanel/MyAvatar/MyAvatarLabel
+@onready var my_name_label: Label = $MyArea/MyPanel/MyNameLabel
+@onready var my_count_label: Label = $MyArea/MyPanel/MyCountLabel
+@onready var my_clock_label: Label = $MyArea/MyPanel/MyClockLabel
+@onready var my_turn_indicator: Panel = $MyArea/MyPanel/MyTurnIndicator
+@onready var my_penalty_badge: Label = $MyArea/MyPanel/MyPenaltyBadge
+
+@onready var bottom_controls: Node2D = $BottomControls
+@onready var niko_kadi_button: Button = $BottomControls/NikoButton
+@onready var niko_kadi_hint: Label = $BottomControls/NikoHint
+@onready var locked_hint: Label = $BottomControls/LockedHint
+
 @onready var suit_picker_overlay: ColorRect = $SuitPicker
+@onready var suit_picker_bg: Panel = $SuitPicker/SuitPickerBG
 @onready var suit_buttons: Array[Button] = [
 	$SuitPicker/BtnHearts, $SuitPicker/BtnDiamonds,
 	$SuitPicker/BtnClubs, $SuitPicker/BtnSpades,
 ]
-@onready var niko_kadi_button: Button = $NikoButton
-@onready var niko_kadi_hint: Label = $NikoHint
-@onready var locked_hint: Label = $LockedHint
-@onready var my_count_label: Label = $MyPanel/MyCountLabel
-@onready var opp_count_label: Label = $OppPanel/OppCountLabel
-@onready var my_clock_label: Label = $MyPanel/MyClockLabel
-@onready var opp_clock_label: Label = $OppPanel/OppClockLabel
 @onready var suit_picker_niko_button: Button = $SuitPicker/NikoToggle
-@onready var accept_skip_button: Button = $AcceptSkipButton
-@onready var jump_notice_panel: Panel = $JumpNoticePanel
-@onready var jump_notice_label: Label = $JumpNoticePanel/JumpLabel
-@onready var log_toggle_button: Button = $LogToggleButton
-@onready var bot_button: Button = $BotButton
-@onready var lobby_button: Button = $LobbyButton
-@onready var log_copy_button: Button = $SysLogPanel/CopyButton
+@onready var suit_picker_close_button: Button = $SuitPicker/SuitPickerClose
+
 @onready var sys_log_panel: Panel = $SysLogPanel
+@onready var log_copy_button: Button = $SysLogPanel/CopyButton
 @onready var sys_log_text: RichTextLabel = $SysLogPanel/LogText
 
 var is_niko_kadi_declared: bool = false
@@ -87,19 +124,33 @@ var _chain_timer_token: int = 0
 
 var use_smart_bot: bool = true
 var _last_opp_hand_size: int = 0
+var _arena_theme: ArenaThemeData = null
+var _deck_skin: DeckSkinData = null
 
 func _ready() -> void:
+	var prog: Node = get_node_or_null("/root/Progression")
+	var arena_id := "emerald_lounge"
+	var deck_id := "royal_emerald"
+	if prog != null:
+		arena_id = prog.selected_arena_id
+		deck_id = prog.selected_deck_id
+	_arena_theme = CosmeticsCatalog.get_arena(arena_id)
+	_deck_skin = CosmeticsCatalog.get_deck(deck_id)
+	_apply_arena_theme(_arena_theme)
+
 	game = GameState.new()
 	clock = ChessClock.new()
 	game.log_added.connect(_on_sys_log_added)
 	game.start_game()
 	_last_opp_hand_size = game.hands[1].size()
 
-	# All widgets come from scenes/table.tscn; only refresh state-dependent style.
 	_update_hand_count_labels()
 	_update_niko_kadi_button_style()
 	_update_suit_picker_niko_style()
 	bot_button.text = "Bot: Hard" if use_smart_bot else "Bot: Easy"
+
+	_update_player_names()
+	_update_avatars()
 
 	_last_seen_top_card = game.top_card()
 	_show_deal()
@@ -108,7 +159,6 @@ func _ready() -> void:
 	_update_ui_state()
 	_start_turn_clock(0)
 	_maybe_start_bot()
-
 
 func _notification(what: int) -> void:
 	match what:
@@ -119,70 +169,102 @@ func _notification(what: int) -> void:
 			if clock and clock.running_player != -1:
 				clock.resume(Time.get_ticks_msec())
 
+func _apply_arena_theme(theme: ArenaThemeData) -> void:
+	if not theme:
+		return
+	if background != null:
+		background.modulate = theme.primary_tint
+	if felt_texture != null:
+		felt_texture.modulate = theme.primary_tint
+	if vignette != null:
+		vignette.color = theme.vignette_color
+
+func _update_player_names() -> void:
+	var prog: Node = get_node_or_null("/root/Progression")
+	if prog != null and not prog.player_name.is_empty():
+		my_name_label.text = prog.player_name
+	else:
+		my_name_label.text = "You"
+	opp_name_label.text = "Master AI" if use_smart_bot else "Novice AI"
+
+func _update_avatars() -> void:
+	opp_avatar_label.text = "♠"
+	my_avatar_label.text = "♥"
+
 func _update_hand_count_labels() -> void:
 	var mine: int = game.hands[0].size()
 	var theirs: int = game.hands[1].size()
 	my_count_label.text = "You: %d/%d" % [mine, game.MAX_HAND]
 	opp_count_label.text = "Opponent: %d/%d" % [theirs, game.MAX_HAND]
-	var warning := Color(1.0, 0.4, 0.4)
-	my_count_label.add_theme_color_override("font_color", warning if mine >= game.MAX_HAND - 1 else Color.WHITE)
-	opp_count_label.add_theme_color_override("font_color", warning if theirs >= game.MAX_HAND - 1 else Color.WHITE)
 
+	var warning := Color(1.0, 0.4, 0.4)
+	var normal := Color(0.85, 0.83, 0.78, 1.0)
+	my_count_label.add_theme_color_override("font_color", warning if mine >= game.MAX_HAND - 1 else normal)
+	opp_count_label.add_theme_color_override("font_color", warning if theirs >= game.MAX_HAND - 1 else normal)
 
 func _on_bot_difficulty_toggled() -> void:
 	use_smart_bot = not use_smart_bot
 	bot_button.text = "Bot: Hard" if use_smart_bot else "Bot: Easy"
-
+	opp_name_label.text = "Master AI" if use_smart_bot else "Novice AI"
 
 func _on_sys_log_added(entry: String) -> void:
 	if sys_log_text != null:
 		sys_log_text.append_text(entry + "\n")
 
-
 func _update_niko_kadi_button_style() -> void:
 	var style := StyleBoxFlat.new()
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	style.shadow_size = 2
-	style.shadow_color = Color(0, 0, 0, 0.25)
-	
+	style.corner_radius_top_left = 12
+	style.corner_radius_top_right = 12
+	style.corner_radius_bottom_left = 12
+	style.corner_radius_bottom_right = 12
+	style.shadow_size = 5
+	style.shadow_color = Color(0, 0, 0, 0.35)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+
 	if is_niko_kadi_declared:
 		niko_kadi_button.text = "Niko Kadi: ON"
-		style.bg_color = Color(0.2, 0.75, 0.25)
+		style.bg_color = Color(0.12, 0.58, 0.22, 1.0)
+		style.border_color = Color(0.98, 0.86, 0.42, 1.0)
 		niko_kadi_button.add_theme_color_override("font_color", Color.WHITE)
 	else:
 		niko_kadi_button.text = "Niko Kadi: OFF"
-		style.bg_color = Color(0.92, 0.92, 0.92)
-		niko_kadi_button.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
-		
+		style.bg_color = Color(0.04, 0.08, 0.06, 0.95)
+		style.border_color = Color(0.75, 0.62, 0.32, 0.8)
+		niko_kadi_button.add_theme_color_override("font_color", Color(0.92, 0.88, 0.8, 1.0))
+
 	niko_kadi_button.add_theme_stylebox_override("normal", style)
 
 func _update_suit_picker_niko_style() -> void:
 	assert(suit_picker_niko_button != null, "Suit picker Niko Kadi button must be created")
 	var style := StyleBoxFlat.new()
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	style.shadow_size = 2
-	style.shadow_color = Color(0, 0, 0, 0.25)
+	style.corner_radius_top_left = 12
+	style.corner_radius_top_right = 12
+	style.corner_radius_bottom_left = 12
+	style.corner_radius_bottom_right = 12
+	style.shadow_size = 4
+	style.shadow_color = Color(0, 0, 0, 0.35)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
 
 	if is_suit_picker_niko:
 		suit_picker_niko_button.text = "Niko Kadi: ON"
-		style.bg_color = Color(0.2, 0.75, 0.25)
+		style.bg_color = Color(0.12, 0.58, 0.22, 1.0)
+		style.border_color = Color(0.98, 0.86, 0.42, 1.0)
 		suit_picker_niko_button.add_theme_color_override("font_color", Color.WHITE)
 	else:
 		suit_picker_niko_button.text = "Niko Kadi: OFF"
-		style.bg_color = Color(0.92, 0.92, 0.92)
-		suit_picker_niko_button.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+		style.bg_color = Color(0.04, 0.08, 0.06, 0.95)
+		style.border_color = Color(0.75, 0.62, 0.32, 0.8)
+		suit_picker_niko_button.add_theme_color_override("font_color", Color(0.92, 0.88, 0.8, 1.0))
 
 	suit_picker_niko_button.add_theme_stylebox_override("normal", style)
 
-
 func _process(delta: float) -> void:
-	# Catch the exact frame a declaration appears, even if no UI refresh follows.
 	var opp_declared := game.has_declared(1)
 	if opp_declared and not _opp_declare_seen:
 		_opp_declare_seen = true
@@ -202,21 +284,20 @@ func _process(delta: float) -> void:
 	_update_locked_hint()
 	_update_clock_display()
 	_check_clock_flag()
+	_update_turn_indicators()
+	_update_penalty_badges()
 
-	# Pulse/flash so the banner cannot be mistaken for a static HUD element.
 	_pulse_time += delta
 	var wave := 0.5 + 0.5 * sin(_pulse_time * 8.0)
 	for banner in [opponent_banner, player_banner]:
 		if banner.visible:
-			banner.modulate = Color(1, 1, 1, 0.65 + 0.35 * wave)
-			banner.scale = Vector2.ONE * (1.0 + 0.02 * wave)
+			banner.modulate = Color(1, 1, 1, 0.75 + 0.25 * wave)
+			banner.scale = Vector2.ONE * (1.0 + 0.015 * wave)
 
-	# Ping every 2 seconds to measure RTT
 	_clock_update_timer += delta
 	if _clock_update_timer >= 2.0:
 		_clock_update_timer = 0.0
 		_send_ping()
-
 
 func _update_declaration_banner() -> void:
 	if game_over_label.visible:
@@ -224,8 +305,6 @@ func _update_declaration_banner() -> void:
 		player_banner.visible = false
 		return
 
-	# During the final-card reveal keep a fresh declaration on screen so the
-	# winning play cannot wipe it out before the player has time to read it.
 	var in_final_reveal := _game_over_shown and not game_over_label.visible
 	var now := Time.get_ticks_msec()
 	opponent_banner.visible = game.has_declared(1) or (in_final_reveal and now < _opp_declare_until_msec)
@@ -266,7 +345,6 @@ func _update_ui_state() -> void:
 	_update_declaration_banner()
 	_check_jump_state()
 
-
 func _update_locked_hint() -> void:
 	var one_plain: bool = game.hands[0].size() == 1 and game.is_game_over() == 0 and game.hands[0][0].is_plain()
 	locked_hint.visible = one_plain and not game.can_win_with_last_card(0) and not _late_declare_open and not niko_kadi_button.visible
@@ -277,7 +355,6 @@ func _update_locked_hint() -> void:
 	else:
 		locked_hint.text = "Last card won't win unless you declare Niko Kadi"
 
-
 func _format_ms(ms: int) -> String:
 	if ms < 0:
 		ms = 0
@@ -285,7 +362,6 @@ func _format_ms(ms: int) -> String:
 	var minutes: int = total_seconds / 60
 	var seconds: int = total_seconds % 60
 	return "%02d:%02d" % [minutes, seconds]
-
 
 func _update_clock_display() -> void:
 	if not clock:
@@ -297,12 +373,43 @@ func _update_clock_display() -> void:
 		var text := _format_ms(time_left)
 		var label := opp_clock_label if p == 1 else my_clock_label
 		label.text = text
-		# Highlight active player's clock
 		if p == running:
-			label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
+			label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.25))
 		else:
-			label.add_theme_color_override("font_color", Color(0.97, 0.95, 0.88, 1))
+			label.add_theme_color_override("font_color", Color(0.97, 0.95, 0.88, 1.0))
 
+func _update_turn_indicators() -> void:
+	var is_my_turn := game.current_player == 0 and game.is_game_over() == 0
+	my_turn_indicator.visible = is_my_turn
+	opp_turn_indicator.visible = not is_my_turn and game.is_game_over() == 0
+
+	var wave := 0.5 + 0.5 * sin(_pulse_time * 6.0)
+	if is_my_turn:
+		my_panel.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		opp_panel.modulate = Color(0.85, 0.85, 0.85, 0.88)
+		my_turn_indicator.modulate = Color(1, 1, 1, 0.8 + 0.2 * wave)
+	else:
+		opp_panel.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		my_panel.modulate = Color(0.85, 0.85, 0.85, 0.88)
+		opp_turn_indicator.modulate = Color(1, 1, 1, 0.8 + 0.2 * wave)
+
+func _update_penalty_badges() -> void:
+	var has_penalty := game.pending_penalty > 0
+	var wave := 0.5 + 0.5 * sin(_pulse_time * 10.0)
+	var badge_mod := Color(1.0, 0.95, 0.85, 0.85 + 0.15 * wave)
+
+	if game.current_player == 0:
+		my_penalty_badge.visible = has_penalty
+		opp_penalty_badge.visible = false
+		if has_penalty:
+			my_penalty_badge.text = "+%d CARDS" % game.pending_penalty
+			my_penalty_badge.modulate = badge_mod
+	else:
+		opp_penalty_badge.visible = has_penalty
+		my_penalty_badge.visible = false
+		if has_penalty:
+			opp_penalty_badge.text = "+%d CARDS" % game.pending_penalty
+			opp_penalty_badge.modulate = badge_mod
 
 func _check_clock_flag() -> void:
 	if not clock:
@@ -310,27 +417,21 @@ func _check_clock_flag() -> void:
 	var now: int = Time.get_ticks_msec()
 	var flagged: int = clock.flagged_player(now)
 	if flagged != -1:
-		# End game: other player wins
 		game.winner = 2 - flagged
 		game.over_limit_player = flagged
 		game.log_event("Player %d flagged: Player %d wins on time" % [flagged + 1, 2 - flagged])
 		_check_game_over()
 
-
 func _send_ping() -> void:
-	# Local games: no network ping, lag credit is always 0.
 	pass
 
-
 func _start_turn_clock(player: int) -> void:
-	if clock:
+	if clock and clock.running_player == -1:
 		clock.start(player, Time.get_ticks_msec())
 
-
 func _stop_turn_clock(_player: int) -> void:
-	if clock:
+	if clock and clock.running_player != -1:
 		clock.stop(Time.get_ticks_msec(), 0)
-
 
 func _check_jump_state() -> void:
 	var active := game.current_player == 0 and game.pending_jump_rank != 0 and game.is_game_over() == 0
@@ -346,7 +447,6 @@ func _check_jump_state() -> void:
 		return
 	_jump_state_active = true
 	_start_jump_flow()
-
 
 func _start_jump_flow() -> void:
 	_jump_flow_token += 1
@@ -383,13 +483,11 @@ func _start_jump_flow() -> void:
 	else:
 		_do_accept_skip()
 
-
 func _cancel_jump_flow() -> void:
 	_jump_flow_token += 1
 	_jump_waiting_for_input = false
 	_jump_pause_active = false
 	jump_notice_panel.visible = false
-
 
 func _do_accept_skip() -> void:
 	_cancel_jump_flow()
@@ -430,9 +528,11 @@ func _update_suit_indicator() -> void:
 	var s: int = game.current_suit
 	suit_indicator_label.text = "Suit:\n%s %s" % [SUIT_SYMBOLS[s], SUIT_NAMES[s]]
 	if s == 0 or s == 1:
-		suit_indicator_label.add_theme_color_override("font_color", Color(0.85, 0.1, 0.1))
+		suit_indicator_label.add_theme_color_override("font_color", Color(0.85, 0.12, 0.15))
+	elif s == 2:
+		suit_indicator_label.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	else:
-		suit_indicator_label.add_theme_color_override("font_color", Color(0.12, 0.12, 0.12))
+		suit_indicator_label.add_theme_color_override("font_color", Color(0.12, 0.18, 0.32))
 
 func _show_suit_picker() -> void:
 	is_suit_picker_niko = false
@@ -444,6 +544,12 @@ func _show_suit_picker() -> void:
 	)
 	suit_picker_overlay.visible = true
 
+	var tween := create_tween()
+	suit_picker_bg.scale = Vector2(0.8, 0.8)
+	suit_picker_bg.modulate = Color(1, 1, 1, 0)
+	tween.tween_property(suit_picker_bg, "scale", Vector2(1, 1), 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(suit_picker_bg, "modulate:a", 1.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
 func _on_suit_chosen(suit: int) -> void:
 	var declare: bool = is_suit_picker_niko
 	if declare:
@@ -453,7 +559,17 @@ func _on_suit_chosen(suit: int) -> void:
 		return
 	is_suit_picker_niko = false
 	_update_suit_picker_niko_style()
+
+	var tween := create_tween()
+	tween.tween_property(suit_picker_bg, "scale", Vector2(0.8, 0.8), 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(suit_picker_bg, "modulate:a", 0.0, 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_callback(_hide_suit_picker).set_delay(0.15)
+
+func _hide_suit_picker() -> void:
 	suit_picker_overlay.visible = false
+	suit_picker_bg.scale = Vector2(1, 1)
+	suit_picker_bg.modulate = Color(1, 1, 1, 1)
+
 	_show_deal()
 	_update_turn_label()
 	_update_suit_indicator()
@@ -461,16 +577,33 @@ func _on_suit_chosen(suit: int) -> void:
 	_check_game_over()
 	_maybe_start_bot()
 
+func _on_suit_picker_close() -> void:
+	if suit_picker_overlay.visible:
+		var tween := create_tween()
+		tween.tween_property(suit_picker_bg, "scale", Vector2(0.8, 0.8), 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.tween_property(suit_picker_bg, "modulate:a", 0.0, 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.tween_callback(_hide_suit_picker).set_delay(0.15)
+
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var motion_pos: Vector2 = get_canvas_transform().affine_inverse() * event.position
+		if input_enabled and game != null and game.current_player == 0 and not my_hand_views.is_empty():
+			for i in range(my_hand_views.size() - 1, -1, -1):
+				var cv := my_hand_views[i]
+				var rect := Rect2(cv.position - CARD_SIZE / 2.0, CARD_SIZE)
+				var hovered := rect.has_point(motion_pos)
+				if hovered != cv.is_hovered:
+					cv.set_hovered(hovered)
+		return
+
 	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
 		return
 
 	var click_pos: Vector2 = get_canvas_transform().affine_inverse() * event.position
 
-	# The sys log works even while the bot is playing and after game over.
 	if log_toggle_button.get_global_rect().has_point(click_pos):
 		sys_log_panel.visible = not sys_log_panel.visible
-		log_toggle_button.text = "Hide Log" if sys_log_panel.visible else "Sys Log"
+		log_toggle_button.text = "Hide Log" if sys_log_panel.visible else "Log"
 		return
 
 	if bot_button.get_global_rect().has_point(click_pos):
@@ -481,13 +614,17 @@ func _input(event: InputEvent) -> void:
 		exit_to_dashboard_requested.emit()
 		return
 
+	if settings_button.get_global_rect().has_point(click_pos):
+		_show_notice("Settings coming soon")
+		return
+
 	if sys_log_panel.visible:
 		if log_copy_button.get_global_rect().has_point(click_pos):
 			DisplayServer.clipboard_set("\n".join(PackedStringArray(game.log_entries)))
 			_show_notice("Log copied to clipboard")
 			return
 		if sys_log_panel.get_global_rect().has_point(click_pos):
-			return  # don't let clicks on the log reach cards underneath
+			return
 
 	if _late_declare_open and niko_kadi_button.get_global_rect().has_point(click_pos):
 		_take_late_declaration()
@@ -496,10 +633,12 @@ func _input(event: InputEvent) -> void:
 	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0:
 		return
 
-	# While the suit picker is showing, handle its buttons and ignore clicks on cards and draw pile
 	if suit_picker_overlay.visible:
 		if suit_picker_niko_button.visible and suit_picker_niko_button.get_global_rect().has_point(click_pos):
 			_on_suit_picker_niko_toggled()
+			return
+		if suit_picker_close_button.get_global_rect().has_point(click_pos):
+			_on_suit_picker_close()
 			return
 		for s in 4:
 			var btn := suit_buttons[s]
@@ -523,37 +662,46 @@ func _input(event: InputEvent) -> void:
 			_on_card_clicked(cv.card)
 			return
 
-	var pile_rect := Rect2(draw_pile_view.position - CARD_SIZE / 2.0, CARD_SIZE)
-	if pile_rect.has_point(click_pos):
-		_on_draw_pile_clicked()
-		return
+	if draw_pile_view != null:
+		var pile_rect := Rect2(draw_pile_view.position - CARD_SIZE / 2.0, CARD_SIZE)
+		if pile_rect.has_point(click_pos):
+			_on_draw_pile_clicked()
+			return
+
+func _show_deal_animated() -> void:
+	_show_deal()
 
 func _show_deal() -> void:
 	_clear_table()
 	_update_hand_count_labels()
-	
-	# My hand face-up along the bottom with 40px margin above bottom edge.
-	_place_hand(game.hands[0], true, SCREEN_SIZE.y - MARGIN - CARD_SIZE.y / 2.0)
-	# Opponent's hand face-down along the top with 40px margin below top edge.
-	_place_hand(game.hands[1], false, MARGIN + CARD_SIZE.y / 2.0)
-	# Top discard card face-up in the middle.
-	_add_card_view(
-		game.top_card(),
-		true,
-		Vector2(
-			SCREEN_SIZE.x / 2.0 + CARD_SIZE.x / 2.0 + 12.0,
-			SCREEN_SIZE.y / 2.0,
-		),
-	)
-	# Face-down draw pile beside the discard card.
-	draw_pile_view = _add_card_view(
-		null,
-		false,
-		Vector2(
-			SCREEN_SIZE.x / 2.0 - CARD_SIZE.x / 2.0 - 12.0,
-			SCREEN_SIZE.y / 2.0,
-		),
-	)
+
+	# Draw pile slot & Discard slot position sync
+	if draw_pile_slot != null:
+		draw_pile_slot.position = DRAW_POS - CARD_SIZE / 2.0
+		draw_pile_slot.size = CARD_SIZE
+	if discard_slot != null:
+		discard_slot.position = DISCARD_POS - CARD_SIZE / 2.0
+		discard_slot.size = CARD_SIZE
+
+	# Stacked deck visual for draw pile
+	var deck_size: int = game.draw_pile.cards.size() if (game.draw_pile != null and "cards" in game.draw_pile) else 12
+	var stack_depth: int = mini(deck_size, 3)
+	for s in range(stack_depth - 1, 0, -1):
+		var offset := Vector2(-s * 2.5, -s * 2.5)
+		var stack_cv := _add_card_view(null, false, DRAW_POS + offset)
+		stack_cv.modulate = Color(0.82, 0.82, 0.82, 0.95)
+
+	# Main draw pile top card
+	draw_pile_view = _add_card_view(null, false, DRAW_POS)
+
+	# Main top discard card
+	if game.top_card() != null:
+		var top_cv := _add_card_view(game.top_card(), true, DISCARD_POS)
+		top_cv.rotation_degrees = randf_range(-2.0, 2.0)
+
+	# Place hands
+	_place_opponent_hand(game.hands[1], OPP_HAND_Y)
+	_place_my_hand(game.hands[0], MY_HAND_Y)
 
 func _clear_table() -> void:
 	for child in get_children():
@@ -561,6 +709,63 @@ func _clear_table() -> void:
 			child.queue_free()
 	my_hand_views.clear()
 	draw_pile_view = null
+
+func _place_my_hand(hand: Array, y_center: float) -> void:
+	var count: int = hand.size()
+	if count == 0:
+		return
+
+	var max_spacing := CARD_SIZE.x + 8.0
+	var usable_width := SCREEN_SIZE.x - MARGIN * 2.0
+	var spacing: float = max_spacing
+	if count > 1:
+		spacing = min((usable_width - CARD_SIZE.x) / (count - 1), max_spacing)
+
+	var total_w := CARD_SIZE.x + (count - 1) * spacing
+	var start_x := (SCREEN_SIZE.x - total_w) / 2.0 + CARD_SIZE.x / 2.0
+
+	for i in count:
+		var card: Card = hand[i]
+		var x := start_x + i * spacing
+		var norm_pos: float = 0.0
+		if count > 1:
+			norm_pos = (float(i) / (count - 1) - 0.5) * 2.0
+		var arc_lift := (1.0 - norm_pos * norm_pos) * 6.0
+		var y := y_center - arc_lift
+		var rot := norm_pos * 4.0
+
+		var cv := _add_card_view(card, true, Vector2(x, y))
+		cv.fan_angle = rot
+		cv.base_pos = Vector2(x, y)
+		cv.rotation_degrees = rot
+		if card in staged_chain:
+			cv.set_staged(true)
+		my_hand_views.append(cv)
+
+func _place_opponent_hand(hand: Array, y_center: float) -> void:
+	var count: int = hand.size()
+	if count == 0:
+		return
+
+	var max_spacing := CARD_SIZE.x + 4.0
+	var usable_width := SCREEN_SIZE.x - MARGIN * 2.0
+	var spacing: float = max_spacing
+	if count > 1:
+		spacing = min((usable_width - CARD_SIZE.x) / (count - 1), max_spacing)
+
+	var total_w := CARD_SIZE.x + (count - 1) * spacing
+	var start_x := (SCREEN_SIZE.x - total_w) / 2.0 + CARD_SIZE.x / 2.0
+
+	for i in count:
+		var x := start_x + i * spacing
+		var cv := _add_card_view(null, false, Vector2(x, y_center))
+		cv.base_pos = Vector2(x, y_center)
+
+func _place_hand(hand: Array, face_up: bool, y: float) -> void:
+	if face_up and hand == game.hands[0]:
+		_place_my_hand(hand, y)
+	else:
+		_place_opponent_hand(hand, y)
 
 func _update_turn_label() -> void:
 	if game.is_game_over() != 0:
@@ -608,11 +813,9 @@ func _offer_late_declaration() -> void:
 	niko_kadi_button.visible = false
 	niko_kadi_hint.visible = false
 
-
 func _take_late_declaration() -> void:
 	game.declare_late(0)
 	_late_declare_open = false
-
 
 func _maybe_start_bot() -> void:
 	if game.current_player == 1 and input_enabled and game.is_game_over() == 0:
@@ -659,28 +862,36 @@ func _show_notice(text: String) -> void:
 	notice_banner.text = text
 	notice_banner.add_theme_color_override("font_color", Color.WHITE)
 	notice_banner.visible = true
-	var timer := get_tree().create_timer(2.0)
-	await timer.timeout
+
+	var tween := create_tween()
+	notice_banner.modulate = Color(1, 1, 1, 0)
+	tween.tween_property(notice_banner, "modulate:a", 1.0, 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(_hide_notice.bind(text)).set_delay(2.5)
+
+func _hide_notice(text: String) -> void:
 	if notice_banner.text == text:
-		notice_banner.visible = false
+		var tween := create_tween()
+		tween.tween_property(notice_banner, "modulate:a", 0.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.tween_callback(func(): notice_banner.visible = false).set_delay(0.2)
 
 func _show_opponent_notice() -> void:
 	var s: int = game.current_suit
 	notice_banner.text = "Opponent chose %s" % SUIT_SYMBOLS[s]
 	if s == 0 or s == 1:
-		notice_banner.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+		notice_banner.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
 	else:
 		notice_banner.add_theme_color_override("font_color", Color.WHITE)
 	notice_banner.visible = true
-	var timer := get_tree().create_timer(2.0)
-	await timer.timeout
-	if notice_banner.text == "Opponent chose %s" % SUIT_SYMBOLS[s]:
-		notice_banner.visible = false
+
+	var tween := create_tween()
+	notice_banner.modulate = Color(1, 1, 1, 0)
+	tween.tween_property(notice_banner, "modulate:a", 1.0, 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(func(): notice_banner.visible = false).set_delay(2.0)
 
 func _start_answer_countdown() -> void:
 	_answer_timer_token += 1
 	var token := _answer_timer_token
-	
+
 	if not game.has_legal_move(0):
 		turn_label.text = "No answer: pick up"
 		await get_tree().create_timer(1.0).timeout
@@ -698,16 +909,16 @@ func _start_answer_countdown() -> void:
 			_stop_turn_clock(0)
 			_maybe_start_bot()
 		return
-		
+
 	for remaining in [3, 2, 1]:
 		if _answer_timer_token != token:
 			return
 		turn_label.text = "Drop an answer: %d" % remaining
 		await get_tree().create_timer(1.0).timeout
-		
+
 	if _answer_timer_token != token:
 		return
-		
+
 	if game.awaiting_answer and game.current_player == 0 and game.is_game_over() == 0:
 		turn_label.text = "Time's up: you pick up 1 card"
 		_show_notice("Time's up: you pick up 1 card")
@@ -726,7 +937,6 @@ func _on_card_clicked(card: Card) -> bool:
 	if not input_enabled or game.current_player != 0 or game.is_game_over() != 0 or game.awaiting_suit_choice:
 		return false
 
-	# Tap an already-staged card to unstage it (if it's the first one and chain > 1, cancel the chain)
 	if card in staged_chain:
 		if card == staged_chain[0] and staged_chain.size() > 1:
 			staged_chain.clear()
@@ -741,41 +951,33 @@ func _on_card_clicked(card: Card) -> bool:
 		_update_ui_state()
 		return true
 
-	# If we are already staging a chain, only same-rank cards can be added
 	if not staged_chain.is_empty():
 		if _can_extend_chain(card):
 			staged_chain.append(card)
 			_refresh_staged_visuals()
 			_update_ui_state()
-			# If no more cards can be added (e.g. down to 1 card left), commit immediately or restart timer
 			_restart_chain_timer()
 			return true
 		elif (staged_chain[0].rank == 12 or staged_chain[0].rank == 8) and card.suit == staged_chain.back().suit:
-			# Answering a staged Q/8 with a same-suit 2/3: commit the question first.
-			# The last staged card decides question_suit in GameState.play_cards().
 			var question_cards := staged_chain.duplicate()
 			staged_chain.clear()
 			if _commit_cards(question_cards):
-				# Re-enter normally so the answer can still be staged/chained (e.g. 2♥ + 2♠).
 				return _on_card_clicked(card)
 			return false
 		else:
 			_shake_card(card)
 			return false
 
-	# First card clicked: if another same-rank card can be chained, start staging instead of playing immediately
 	if _can_extend_chain(card):
 		_cancel_jump_flow()
-		_answer_timer_token += 1  # pause Q/8 countdown while staging
+		_answer_timer_token += 1
 		staged_chain.append(card)
 		_refresh_staged_visuals()
 		_update_ui_state()
 		_restart_chain_timer()
 		return true
 
-	# Otherwise, no chain is possible—play the single card immediately
 	return _commit_cards([card])
-
 
 func _restart_chain_timer() -> void:
 	_chain_timer_token += 1
@@ -784,10 +986,10 @@ func _restart_chain_timer() -> void:
 	await get_tree().create_timer(1.8).timeout
 	if token != _chain_timer_token or staged_chain.is_empty():
 		return
-	var cards_to_play := staged_chain.duplicate()
+	var cards_to_play: Array[Card] = []
+	cards_to_play.assign(staged_chain)
 	staged_chain.clear()
 	_commit_cards(cards_to_play)
-
 
 func _commit_cards(cards: Array[Card]) -> bool:
 	_chain_timer_token += 1
@@ -851,11 +1053,11 @@ func _shake_card(card: Card) -> void:
 			var cv := child as CardView
 			var orig_x: float = cv.position.x
 			var tween := create_tween()
-			tween.tween_property(cv, "position:x", orig_x + 10.0, 0.05)
-			tween.tween_property(cv, "position:x", orig_x - 10.0, 0.05)
-			tween.tween_property(cv, "position:x", orig_x + 10.0, 0.05)
-			tween.tween_property(cv, "position:x", orig_x - 10.0, 0.05)
-			tween.tween_property(cv, "position:x", orig_x, 0.05)
+			tween.tween_property(cv, "position:x", orig_x + 8.0, 0.04)
+			tween.tween_property(cv, "position:x", orig_x - 8.0, 0.04)
+			tween.tween_property(cv, "position:x", orig_x + 8.0, 0.04)
+			tween.tween_property(cv, "position:x", orig_x - 8.0, 0.04)
+			tween.tween_property(cv, "position:x", orig_x, 0.04)
 			break
 
 func _game_over_text(result: int) -> String:
@@ -865,45 +1067,46 @@ func _game_over_text(result: int) -> String:
 		return "Opponent went over %d cards: you win" % game.MAX_HAND
 	return "You win!" if result == 1 else "You lose!"
 
-
 func _check_game_over() -> void:
 	if _game_over_shown:
 		return
 	var result := game.is_game_over()
 	if result == 0:
 		return
-	if clock:
+	if clock and clock.running_player != -1:
 		clock.stop(Time.get_ticks_msec(), 0)
 	game.log_event("GAME OVER: %s won!" % ("You" if result == 1 else "Opp"))
 	_game_over_shown = true
 	_game_over_result = result
 	input_enabled = false
 	_cancel_jump_flow()
-	_show_deal()  # leave the winning card on the table during the reveal
+	_show_deal()
 	_update_ui_state()
 	_update_declaration_banner()
 
-	# Never flash the result instantly: let the final card sit for ~1.5 seconds.
 	await get_tree().create_timer(1.5).timeout
 	game_over_label.text = _game_over_text(result)
 	game_over_label.visible = true
+
+	var tween := create_tween()
+	game_over_label.modulate = Color(1, 1, 1, 0)
+	game_over_label.scale = Vector2(0.5, 0.5)
+	tween.tween_property(game_over_label, "modulate:a", 1.0, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(game_over_label, "scale", Vector2(1, 1), 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 	if lobby_button != null:
 		lobby_button.text = "Continue"
 	match_finished.emit(result == 1)
 	_update_declaration_banner()
 
-
-# Chain staging helpers
 func _can_extend_chain(card: Card) -> bool:
 	if card in staged_chain:
 		return false
-	# GameState forbids chains that empty your hand (cards.size() >= hands.size())
 	if staged_chain.size() + 1 >= game.hands[0].size():
 		return false
 	if staged_chain.is_empty():
 		if not game.can_play(card):
 			return false
-		# Only open a chain window if you hold another card of the same rank AND > 2 cards
 		if game.hands[0].size() <= 2:
 			return false
 		for other in game.hands[0]:
@@ -913,41 +1116,37 @@ func _can_extend_chain(card: Card) -> bool:
 	else:
 		return card.rank == staged_chain[0].rank
 
-
-# Is there any legal play right now (single card or same-rank chain) that would
-# leave exactly one plain card, i.e. a declarable Niko Kadi finish?
 func _has_declaration_play() -> bool:
 	var hand: Array = game.hands[0]
 	if hand.size() < 2:
 		return false
-	var needed: int = hand.size() - 1
-	var groups: Dictionary = {}
-	for item in hand:
-		var card: Card = item as Card
-		if not groups.has(card.rank):
-			groups[card.rank] = []
-		(groups[card.rank] as Array).append(card)
-	for rank in groups.keys():
-		var cards: Array = groups[rank]
-		if cards.size() < needed:
-			continue
-		for subset in _combinations(cards, needed):
+	if hand.size() == 2:
+		for card in hand:
+			if game.can_play(card):
+				return true
+		return false
+	var needed := hand.size() - 1
+	var subsets := _combinations(hand, needed)
+	for subset in subsets:
+		var rank: int = subset[0].rank
+		var same_rank := true
+		for card in subset:
+			if card.rank != rank:
+				same_rank = false
+				break
+		if same_rank:
 			if _subset_can_declare(subset):
 				return true
 	return false
 
-
-# GameState only checks the first card of a chain for legality, so try every
-# rotation of the candidate play before ruling it out.
 func _subset_can_declare(subset: Array) -> bool:
 	for offset in subset.size():
 		var ordered: Array[Card] = []
 		for i in subset.size():
-			ordered.append(subset[(offset + i) % subset.size()] as Card)
+			ordered.append(subset[(offset + i) % subset.size()])
 		if game.can_declare_on_play(0, ordered):
 			return true
 	return false
-
 
 func _combinations(cards: Array, take: int) -> Array:
 	var result: Array = []
@@ -957,18 +1156,14 @@ func _combinations(cards: Array, take: int) -> Array:
 	_collect_combinations(cards, 0, take, current, result)
 	return result
 
-
-func _collect_combinations(cards: Array, start: int, take: int,
-		current: Array, result: Array) -> void:
+func _collect_combinations(cards: Array, start: int, take: int, current: Array, result: Array) -> void:
 	if current.size() == take:
 		result.append(current.duplicate())
 		return
-	var remaining: int = take - current.size()
-	for i in range(start, cards.size() - remaining + 1):
+	for i in range(start, cards.size()):
 		current.append(cards[i])
 		_collect_combinations(cards, i + 1, take, current, result)
 		current.pop_back()
-
 
 func _can_show_niko_kadi() -> bool:
 	if game.current_player != 0 or game.awaiting_suit_choice or game.is_game_over() != 0:
@@ -977,59 +1172,39 @@ func _can_show_niko_kadi() -> bool:
 		return game.hands[0][0].is_plain() and not game.declared[0] and not game.awaiting_answer and not game.awaiting_call
 	if staged_chain.is_empty():
 		return _has_declaration_play()
-	# Keep the toggle visible and armed through the whole chain: as long as this
-	# staged prefix can still be completed into a declaration, the player can
-	# switch it ON now instead of during the short final commit window.
 	var hand: Array = game.hands[0]
 	if game.can_declare_on_play(0, staged_chain):
 		return true
-	var needed: int = hand.size() - staged_chain.size() - 1
-	if needed <= 0:
+	var remaining: Array = []
+	for c in hand:
+		if not (c in staged_chain):
+			remaining.append(c)
+	var rank: int = staged_chain[0].rank
+	var pool: Array = []
+	for c in remaining:
+		if c.rank == rank:
+			pool.append(c)
+	var needed_extra := hand.size() - 1 - staged_chain.size()
+	if needed_extra <= 0:
 		return false
-	var rank: int = (staged_chain[0] as Card).rank
-	var extras: Array = []
-	for item in hand:
-		var card: Card = item as Card
-		if not (card in staged_chain) and card.rank == rank:
-			extras.append(card)
-	for subset in _combinations(extras, needed):
+	var subsets := _combinations(pool, needed_extra)
+	for subset in subsets:
 		var candidate: Array[Card] = []
-		for card in staged_chain:
-			candidate.append(card as Card)
-		for card in subset:
-			candidate.append(card as Card)
-		if game.can_declare_on_play(0, candidate):
+		candidate.assign(staged_chain + subset)
+		if _subset_can_declare(candidate):
 			return true
 	return false
 
-
 func _refresh_staged_visuals() -> void:
-	var base_y := SCREEN_SIZE.y - MARGIN - CARD_SIZE.y / 2.0
 	for cv in my_hand_views:
-		cv.position.y = base_y - (28.0 if cv.card in staged_chain else 0.0)
+		cv.set_staged(cv.card in staged_chain)
 
-
-# Instantiate the scene (not just the script) so the CardView has its Sprite2D,
-# and add it to the tree before set_card() so @onready is assigned.
 func _add_card_view(p_card, p_face_up: bool, p_position: Vector2) -> CardView:
 	var cv := CARD_VIEW_SCENE.instantiate() as CardView
 	cv.position = p_position
+	cv.card_size = CARD_SIZE
 	add_child(cv)
+	if _deck_skin != null:
+		cv.apply_deck_skin(_deck_skin)
 	cv.set_card(p_card, p_face_up)
 	return cv
-
-# Places hand cards evenly spaced along `y`, overlapping if they don't fit.
-func _place_hand(hand, face_up: bool, y: float) -> void:
-	var count: int = hand.size()
-	if count == 0:
-		return
-	var usable := SCREEN_SIZE.x - MARGIN * 2.0
-	var spacing := CARD_SIZE.x
-	if count > 1:
-		spacing = clamp((usable - CARD_SIZE.x) / (count - 1), 0.0, CARD_SIZE.x)
-	var x := MARGIN + CARD_SIZE.x / 2.0
-	for card in hand:
-		var cv := _add_card_view(card, face_up, Vector2(x, y))
-		if face_up and hand == game.hands[0]:
-			my_hand_views.append(cv)
-		x += spacing

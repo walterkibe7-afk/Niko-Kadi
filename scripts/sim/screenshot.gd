@@ -58,14 +58,19 @@ func _init() -> void:
 	# Shot 6: both declaration banners
 	table.jump_notice_panel.visible = false
 	table.accept_skip_button.visible = false
-	table.game.declared = [true, true]
+	table.game.hands[0] = [Card.new(7, Card.Suit.HEARTS)]
+	table.game.hands[1] = [Card.new(5, Card.Suit.CLUBS)]
+	table.game.declared[0] = true
+	table.game.declared[1] = true
+	table._show_deal()
 	table._update_declaration_banner()
 	await process_frame
 	_save(table, "06_banners")
 	shot += 1
 
 	# Shot 7: sys log open
-	table.game.declared = [false, false]
+	table.game.declared[0] = false
+	table.game.declared[1] = false
 	table._update_declaration_banner()
 	table.sys_log_text.append_text("[01] Game started\n[02] You played 7♥\n[03] Opp played 8♣\n[01] Your turn\n")
 	table.sys_log_panel.visible = true

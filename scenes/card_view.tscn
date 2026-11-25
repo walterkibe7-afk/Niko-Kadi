@@ -1,8 +1,11 @@
-[gd_scene load_steps=2 format=3 uid="uid://c7e3m1k9a2v6b5n"]
+[gd_scene load_steps=3 format=3 uid="uid://c7e3m1k9a2v6b5n"]
 
 [ext_resource type="Script" uid="uid://cqyxl7ooiqnif" path="res://scripts/ui/card_view.gd" id="1_card_view_script"]
 
 [node name="CardView" type="Node2D"]
 script = ExtResource("1_card_view_script")
+
+[node name="Shadow" type="Sprite2D" parent="."]
+z_index = -1
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
